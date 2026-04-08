@@ -104,8 +104,8 @@ class ResetRequest(BaseModel):
     task_id: Optional[int] = Field(
         default=None,
         ge=0,
-        le=2,
-        description="0=Easy 1=Medium 2=Hard. Omit to cycle.",
+        le=4,
+        description="0=Easy 1=Medium 2=Hard 3=MultiDep 4=Expert. Omit to cycle.",
     )
 
 
@@ -214,7 +214,72 @@ async fn main() {
 """,
 )
 
-TASKS = [TASK_EASY, TASK_MEDIUM, TASK_HARD]
+# Task 3: Medium-Hard — Two missing dependencies in a single file
+# Agent must identify BOTH chrono and regex from the compiler output and add
+# them in a single Cargo.toml edit.  Tests multi-dependency resolution.
+TASK_MULTI_DEP = TaskConfig(
+    name="multiple_missing_dependencies",
+    description="Medium-Hard: main.rs uses chrono + regex but neither is in Cargo.toml",
+    cargo_toml="""\
+[package]
+name = "broken-project"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+""",
+    main_rs="""\
+use chrono::Utc;
+use regex::Regex;
+
+fn main() {
+    let now = Utc::now();
+    let re = Regex::new(r"^\\d{4}-\\d{2}-\\d{2}$").unwrap();
+    let date_str = now.format("%Y-%m-%d").to_string();
+    if re.is_match(&date_str) {
+        println!("Today is: {}", date_str);
+    }
+}
+""",
+)
+
+# Task 4: Expert — Three errors across BOTH files (requires ≥2 steps)
+# Cargo.toml: serde missing derive feature + serde_json entirely absent
+# main.rs: missing semicolon on the serde_json::to_string line
+# This is the hardest task — the agent must fix Cargo.toml AND main.rs.
+TASK_EXPERT = TaskConfig(
+    name="cross_file_multi_error",
+    description="Expert: serde missing derive + serde_json absent from Cargo.toml + missing semicolon in main.rs",
+    cargo_toml="""\
+[package]
+name = "broken-project"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = "1.0"
+rand = "0.8"
+""",
+    main_rs="""\
+use serde::{Deserialize, Serialize};
+use rand::Rng;
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Config {
+    name: String,
+    seed: u32,
+}
+
+fn main() {
+    let mut rng = rand::thread_rng();
+    let cfg = Config { name: "test".to_string(), seed: rng.gen_range(1..100) };
+    let json = serde_json::to_string(&cfg).unwrap()
+    println!("Config: {}", json);
+}
+""",
+)
+
+TASKS = [TASK_EASY, TASK_MEDIUM, TASK_HARD, TASK_MULTI_DEP, TASK_EXPERT]
 
 
 # =============================================================================
@@ -259,6 +324,12 @@ class RustFixerEnv:
         main_rs_path = ws / "src" / "main.rs"
         main_rs = main_rs_path.read_text(encoding="utf-8") if main_rs_path.exists() else ""
         return cargo_toml, main_rs
+
+    @staticmethod
+    def _count_warnings(compiler_output: str) -> int:
+        """Count compiler warnings (non-error diagnostics)."""
+        import re
+        return len(re.findall(r"warning\[", compiler_output))
 
     @staticmethod
     def _count_errors(compiler_output: str) -> int:
@@ -378,8 +449,10 @@ class RustFixerEnv:
         #   "Provides signal over the full trajectory, rewards partial progress,
         #    penalizes clearly undesirable behavior."
         if returncode == 0:
-            # Full fix — the only way to score 1.0 and end the episode.
-            self._last_reward = Reward(score=1.0, is_done=True)
+            # Build passed.  Deduct slightly for warnings (AIDLC quality gate).
+            warnings = self._count_warnings(compiler_output)
+            score = 1.0 if warnings == 0 else max(0.95, 1.0 - warnings * 0.01)
+            self._last_reward = Reward(score=round(score, 2), is_done=True)
         elif self._initial_error_count > 0:
             current_errors = self._count_errors(compiler_output)
             # Reward proportional to error reduction, capped at 0.9.

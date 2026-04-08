@@ -321,6 +321,8 @@ def run_agent(task_id: int, benchmark: str = BENCHMARK) -> Tuple[bool, int, floa
         "missing_rand_dependency",
         "serde_feature_missing",
         "syntax_and_dependency_error",
+        "multiple_missing_dependencies",
+        "cross_file_multi_error",
     ]
     task_name = task_names[task_id]
 
@@ -366,7 +368,7 @@ def run_agent(task_id: int, benchmark: str = BENCHMARK) -> Tuple[bool, int, floa
 
 def run_all_tasks(benchmark: str = BENCHMARK) -> None:
     results = []
-    for task_id in range(3):
+    for task_id in range(5):
         success, steps, score = run_agent(task_id=task_id, benchmark=benchmark)
         results.append({"task_id": task_id, "success": success, "steps": steps, "score": score})
 
@@ -385,7 +387,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Baseline agent — Rust Build Fixer")
-    parser.add_argument("--task", type=int, choices=[0, 1, 2], default=None,
+    parser.add_argument("--task", type=int, choices=[0, 1, 2, 3, 4], default=None,
                         help="0=Easy 1=Medium 2=Hard. Omit to run all.")
     parser.add_argument("--benchmark", default="rust-swe-agent-env")
     args = parser.parse_args()
