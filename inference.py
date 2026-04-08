@@ -51,12 +51,15 @@ logger = logging.getLogger(__name__)
 #   - LOCAL_IMAGE_NAME is optional (used with from_docker_image()).
 # =============================================================================
 
-API_BASE_URL: str = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
-MODEL_NAME: str = os.getenv("MODEL_NAME", "gpt-4o")
-HF_TOKEN: Optional[str] = os.getenv("HF_TOKEN")           # no default — must be set
-LOCAL_IMAGE_NAME: Optional[str] = os.getenv("LOCAL_IMAGE_NAME")  # optional
+# Match the exact sample inference.py variable pattern:
+API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
+API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
+MODEL_NAME = os.getenv("MODEL_NAME") or "Qwen/Qwen2.5-72B-Instruct"
+LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
+HF_TOKEN = API_KEY  # alias for backward compat
 
-MAX_STEPS: int = 10
+BENCHMARK = os.getenv("RUST_FIXER_BENCHMARK", "rust-swe-agent-env")
+MAX_STEPS = 10
 
 # Maximum compiler output characters forwarded to the LLM (ASI04).
 _MAX_COMPILER_OUTPUT_CHARS: int = 4_096
@@ -70,10 +73,10 @@ def _warn_config() -> None:
     The LLM call will surface a real error if credentials are wrong; a hard
     exit here would hide that signal from the CI log stream.
     """
-    if not HF_TOKEN:
+    if not API_KEY:
         logger.warning(
-            "HF_TOKEN is not set. LLM calls will fail with an auth error. "
-            "Set HF_TOKEN before running inference.py."
+            "Neither HF_TOKEN nor API_KEY is set. LLM calls will fail. "
+            "Set HF_TOKEN or API_KEY before running inference.py."
         )
 
     # Soft-validate the URL (SSRF mitigation — warn, don't exit).
@@ -313,7 +316,7 @@ class StructuredLogger:
 # =============================================================================
 
 
-def run_agent(task_id: int, benchmark: str = "rust-swe-agent-env") -> Tuple[bool, int, float]:
+def run_agent(task_id: int, benchmark: str = BENCHMARK) -> Tuple[bool, int, float]:
     task_names = [
         "missing_rand_dependency",
         "serde_feature_missing",
@@ -327,7 +330,7 @@ def run_agent(task_id: int, benchmark: str = "rust-swe-agent-env") -> Tuple[bool
     logger.info("Agent starting task=%s model=%s", task_name, MODEL_NAME)
 
     slog = StructuredLogger(task_name=task_name, benchmark=benchmark, model_name=MODEL_NAME)
-    llm = LLMClient(base_url=API_BASE_URL, model=MODEL_NAME, token=HF_TOKEN)
+    llm = LLMClient(base_url=API_BASE_URL, model=MODEL_NAME, token=API_KEY)
 
     slog.log_start()
 
@@ -353,7 +356,7 @@ def run_agent(task_id: int, benchmark: str = "rust-swe-agent-env") -> Tuple[bool
         logger.exception("Unhandled error in agent loop")
         slog.log_step_error(step=max(step, 1), error_msg=type(exc).__name__)
     finally:
-        env.cleanup()
+        env.close()
 
     final_score = 1.0 if success else 0.0
     slog.log_end(success=success, final_score=final_score)
@@ -361,7 +364,7 @@ def run_agent(task_id: int, benchmark: str = "rust-swe-agent-env") -> Tuple[bool
     return success, slog.step_count, final_score
 
 
-def run_all_tasks(benchmark: str = "rust-swe-agent-env") -> None:
+def run_all_tasks(benchmark: str = BENCHMARK) -> None:
     results = []
     for task_id in range(3):
         success, steps, score = run_agent(task_id=task_id, benchmark=benchmark)
