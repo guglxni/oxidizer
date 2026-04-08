@@ -132,6 +132,7 @@ class StepRequest(BaseModel):
 class StepResponse(BaseModel):
     observation: Observation
     reward: Reward
+    done: bool = Field(default=False, description="True when the episode is complete")
     info: Info
 
 
@@ -319,6 +320,7 @@ class RustFixerEnv:
         self._last_reward: Reward = Reward()
         self._last_info: Info = Info()
         self._initial_error_count: int = 0
+        self._previous_error_count: int = 0
 
     # ------------------------------------------------------------------ helpers
 
@@ -421,6 +423,7 @@ class RustFixerEnv:
         cargo_toml_content, main_rs_content = self._read_files()
 
         self._initial_error_count = self._count_errors(compiler_output)
+        self._previous_error_count = self._initial_error_count
         logger.info(
             "reset task=%s returncode=%d initial_errors=%d",
             self._current_task.name, returncode, self._initial_error_count,
@@ -469,7 +472,8 @@ class RustFixerEnv:
 
         current_errors = self._count_errors(compiler_output)
         current_warnings = self._count_warnings(compiler_output)
-        regression = current_errors > self._initial_error_count
+        regression = current_errors > self._previous_error_count
+        self._previous_error_count = current_errors
 
         # --- Reward with partial progress + regression penalty ---
         if returncode == 0:
@@ -666,7 +670,7 @@ async def step(request: StepRequest = Body(...)):
             obs, reward, info = await loop.run_in_executor(
                 None, get_env().step, request.action
             )
-        return StepResponse(observation=obs, reward=reward, info=info)
+        return StepResponse(observation=obs, reward=reward, done=reward.is_done, info=info)
     except HTTPException:
         raise
     except Exception as exc:
