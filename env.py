@@ -47,7 +47,7 @@ if not _SERVER_API_KEY:
     )
 
 # Cap concurrent cargo-check subprocesses (ASI02 / resource exhaustion).
-_CARGO_SEMAPHORE = asyncio.Semaphore(4)
+_CARGO_SEMAPHORE = asyncio.Semaphore(int(os.environ.get("CARGO_CONCURRENCY", "2")))
 # Serialise access to the global env singleton (ASI03 race condition).
 _ENV_LOCK = asyncio.Lock()
 
@@ -91,10 +91,24 @@ class Reward(BaseModel):
     is_done: bool = Field(default=False)
 
 
+class Info(BaseModel):
+    """Structured metadata returned alongside each step (OpenEnv spec: info dict)."""
+    error_count: int = Field(default=0, description="Current compiler error count")
+    warning_count: int = Field(default=0, description="Current compiler warning count")
+    initial_error_count: int = Field(default=0, description="Error count at episode start")
+    errors_fixed: int = Field(default=0, description="Errors fixed since reset")
+    regression: bool = Field(default=False, description="True if error count increased this step")
+    step_count: int = Field(default=0)
+    task_name: str = Field(default="")
+    task_id: int = Field(default=0)
+
+
 class State(BaseModel):
     observation: Observation
     reward: Reward
+    info: Info
     task_name: str
+    task_id: int
     step_count: int
 
 
@@ -118,6 +132,7 @@ class StepRequest(BaseModel):
 class StepResponse(BaseModel):
     observation: Observation
     reward: Reward
+    info: Info
 
 
 class HealthResponse(BaseModel):
@@ -302,6 +317,7 @@ class RustFixerEnv:
         self._current_task: Optional[TaskConfig] = None
         self._last_observation: Optional[Observation] = None
         self._last_reward: Reward = Reward()
+        self._last_info: Info = Info()
         self._initial_error_count: int = 0
 
     # ------------------------------------------------------------------ helpers
@@ -360,6 +376,7 @@ class RustFixerEnv:
         env = os.environ.copy()
         env["CARGO_TERM_COLOR"] = "never"
         env["RUST_BACKTRACE"] = "0"
+        env["CARGO_INCREMENTAL"] = "1"  # reuse build cache across steps
 
         try:
             result = subprocess.run(
@@ -416,11 +433,17 @@ class RustFixerEnv:
         )
         return self._last_observation
 
-    def step(self, action: Action) -> tuple[Observation, Reward]:
+    def step(self, action: Action) -> tuple[Observation, Reward, Info]:
+        """
+        Apply one edit and evaluate with cargo check.
+
+        Returns (observation, reward, info) per the OpenEnv spec:
+        step(action) → observation, reward, done, info.
+        (done is embedded in reward.is_done; info carries diagnostic metadata.)
+        """
         self._step_count += 1
         ws = self._workspace()
 
-        # Log the edit for audit purposes (A09 Security Logging).
         logger.info(
             "step=%d file=%s content_bytes=%d",
             self._step_count,
@@ -444,39 +467,48 @@ class RustFixerEnv:
             main_rs_content=main_rs_content,
         )
 
-        # --- Partial-progress reward (not just binary 0/1) ---
-        # This satisfies the rubric requirement:
-        #   "Provides signal over the full trajectory, rewards partial progress,
-        #    penalizes clearly undesirable behavior."
+        current_errors = self._count_errors(compiler_output)
+        current_warnings = self._count_warnings(compiler_output)
+        regression = current_errors > self._initial_error_count
+
+        # --- Reward with partial progress + regression penalty ---
         if returncode == 0:
-            # Build passed.  Deduct slightly for warnings (AIDLC quality gate).
-            warnings = self._count_warnings(compiler_output)
-            score = 1.0 if warnings == 0 else max(0.95, 1.0 - warnings * 0.01)
+            # Build passed.  Deduct slightly for warnings (quality gate).
+            score = 1.0 if current_warnings == 0 else max(0.95, 1.0 - current_warnings * 0.01)
             self._last_reward = Reward(score=round(score, 2), is_done=True)
         elif self._initial_error_count > 0:
-            current_errors = self._count_errors(compiler_output)
-            # Reward proportional to error reduction, capped at 0.9.
-            # Only a fully passing build earns 1.0.
             reduction = self._initial_error_count - current_errors
             if reduction > 0:
                 ratio = reduction / self._initial_error_count
                 self._last_reward = Reward(
                     score=round(min(0.9, ratio * 0.9), 2), is_done=False
                 )
+            elif regression:
+                # Penalize regression: agent made things worse → minimal score.
+                self._last_reward = Reward(score=0.0, is_done=False)
             else:
-                # No improvement or regression — zero reward.
                 self._last_reward = Reward(score=0.0, is_done=False)
         else:
             self._last_reward = Reward(score=0.0, is_done=False)
 
-        logger.info(
-            "step=%d returncode=%d errors=%d score=%.2f",
-            self._step_count,
-            returncode,
-            self._count_errors(compiler_output),
-            self._last_reward.score,
+        # Build the info dict (OpenEnv spec compliance).
+        self._last_info = Info(
+            error_count=current_errors,
+            warning_count=current_warnings,
+            initial_error_count=self._initial_error_count,
+            errors_fixed=max(0, self._initial_error_count - current_errors),
+            regression=regression,
+            step_count=self._step_count,
+            task_name=self._current_task.name if self._current_task else "",
+            task_id=self._current_task_idx,
         )
-        return self._last_observation, self._last_reward
+
+        logger.info(
+            "step=%d errors=%d/%d warnings=%d regression=%s score=%.2f",
+            self._step_count, current_errors, self._initial_error_count,
+            current_warnings, regression, self._last_reward.score,
+        )
+        return self._last_observation, self._last_reward, self._last_info
 
     def get_state(self) -> State:
         if self._current_task is None or self._last_observation is None:
@@ -484,7 +516,9 @@ class RustFixerEnv:
         return State(
             observation=self._last_observation,
             reward=self._last_reward,
+            info=self._last_info,
             task_name=self._current_task.name,
+            task_id=self._current_task_idx,
             step_count=self._step_count,
         )
 
@@ -629,10 +663,10 @@ async def step(request: StepRequest = Body(...)):
     try:
         async with _CARGO_SEMAPHORE, _ENV_LOCK:
             loop = asyncio.get_event_loop()
-            obs, reward = await loop.run_in_executor(
+            obs, reward, info = await loop.run_in_executor(
                 None, get_env().step, request.action
             )
-        return StepResponse(observation=obs, reward=reward)
+        return StepResponse(observation=obs, reward=reward, info=info)
     except HTTPException:
         raise
     except Exception as exc:

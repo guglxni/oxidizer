@@ -29,7 +29,7 @@ from urllib.parse import urlparse
 
 from openai import OpenAI
 
-from env import Action, Observation, Reward, RustFixerEnv
+from env import Action, Info, Observation, Reward, RustFixerEnv
 
 # ---------------------------------------------------------------------------
 # Logging — stderr only, never touches the CI stdout log stream.
@@ -347,8 +347,10 @@ def run_agent(task_id: int, benchmark: str = BENCHMARK) -> Tuple[bool, int, floa
                 slog.log_step_error(step, err or "unknown_error")
                 continue
 
-            observation, reward = env.step(action)
-            slog.log_step(step=step, action=action, reward=reward, error=None)
+            observation, reward, info = env.step(action)
+            # Use info.regression to surface regression as error in CI logs.
+            step_error = "regression:errors_increased" if info.regression else None
+            slog.log_step(step=step, action=action, reward=reward, error=step_error)
 
             if reward.is_done:
                 success = True

@@ -20,6 +20,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     CARGO_HOME=/app/.cargo \
     RUSTUP_HOME=/app/.rustup \
+    CARGO_INCREMENTAL=1 \
     PATH="/app/.cargo/bin:$PATH"
 
 # ── System deps + Rust toolchain ──────────────────────────────────────────────
@@ -42,7 +43,7 @@ RUN cargo --version && rustc --version
 # use, so runtime `cargo check` hits the on-disk cache instead of the network.
 # We use printf to avoid requiring heredoc BuildKit support for this layer.
 RUN mkdir -p /tmp/cargo_warmup/src \
-    && printf '[package]\nname="warmup"\nversion="0.1.0"\nedition="2021"\n\n[dependencies]\nrand="0.8"\nserde={version="1.0",features=["derive"]}\nserde_json="1.0"\nreqwest={version="0.11",features=["blocking","json"]}\ntokio={version="1.0",features=["full"]}\n' \
+    && printf '[package]\nname="warmup"\nversion="0.1.0"\nedition="2021"\n\n[dependencies]\nrand="0.8"\nserde={version="1.0",features=["derive"]}\nserde_json="1.0"\nreqwest={version="0.11",features=["blocking","json"]}\ntokio={version="1.0",features=["full"]}\nchrono="0.4"\nregex="1.0"\n' \
        > /tmp/cargo_warmup/Cargo.toml \
     && echo 'fn main(){}' > /tmp/cargo_warmup/src/main.rs \
     && cargo fetch --manifest-path /tmp/cargo_warmup/Cargo.toml \
