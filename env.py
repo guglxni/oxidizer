@@ -488,10 +488,14 @@ class RustFixerEnv:
                     score=round(min(0.9, ratio * 0.9), 2), is_done=False
                 )
             elif regression:
-                # Penalize regression: agent made things worse → minimal score.
+                # Regression: agent made things worse → 0.0 (distinguishable
+                # from no-change via info.regression=True, but reward itself
+                # is the lowest possible signal).
                 self._last_reward = Reward(score=0.0, is_done=False)
             else:
-                self._last_reward = Reward(score=0.0, is_done=False)
+                # No change, no regression: tiny positive to distinguish from
+                # regression in cases where the RL trainer only sees the scalar.
+                self._last_reward = Reward(score=0.05, is_done=False)
         else:
             self._last_reward = Reward(score=0.0, is_done=False)
 
