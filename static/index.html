@@ -32,6 +32,19 @@ header{border-bottom:1px solid var(--border);padding:20px 0;background:var(--sur
 .badge{background:var(--surface);border:1px solid var(--border);padding:4px 12px;border-radius:20px;font-size:12px;color:var(--muted)}
 .badge.live{border-color:var(--green);color:var(--green)}
 
+/* Repo Input */
+.repo-input-wrap{max-width:700px;margin:28px auto 0;display:flex;gap:8px}
+.repo-input-wrap input{flex:1;padding:12px 16px;border-radius:var(--radius);border:2px solid var(--border);
+  background:var(--surface);color:var(--text);font-size:15px;font-family:var(--mono);outline:none;transition:border-color .2s}
+.repo-input-wrap input:focus{border-color:var(--accent)}
+.repo-input-wrap input::placeholder{color:var(--muted)}
+.repo-input-wrap button{padding:12px 24px;border-radius:var(--radius);background:var(--accent);color:#fff;
+  font-weight:700;font-size:14px;border:none;cursor:pointer;white-space:nowrap;transition:background .15s}
+.repo-input-wrap button:hover:not(:disabled){background:var(--accent2)}
+.repo-input-wrap button:disabled{opacity:.4;cursor:not-allowed}
+.analyze-status{text-align:center;margin-top:10px;font-size:13px;color:var(--muted)}
+.or-divider{text-align:center;color:var(--muted);font-size:13px;margin:20px 0 4px;text-transform:uppercase;letter-spacing:2px}
+
 /* Task Selector */
 .section{padding:24px 0}
 .section-title{font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:16px}
@@ -167,7 +180,15 @@ footer{border-top:1px solid var(--border);padding:24px 0;margin-top:48px;text-al
       <span class="badge">Real Compiler</span>
       <span class="badge">Partial Rewards</span>
     </div>
+
+    <div class="repo-input-wrap">
+      <input type="text" id="repoUrlInput" placeholder="https://github.com/owner/rust-project" spellcheck="false">
+      <button id="btnAnalyze" onclick="analyzeRepo()">Analyze Repo</button>
+    </div>
+    <div class="analyze-status" id="analyzeStatus"></div>
   </div>
+
+  <div class="or-divider">or try a built-in challenge</div>
 
   <!-- Task Selector -->
   <div class="section">
@@ -286,6 +307,7 @@ footer{border-top:1px solid var(--border);padding:24px 0;margin-top:48px;text-al
       <div class="api-item"><span class="api-method post">POST</span> /step</div>
       <div class="api-item"><span class="api-method get">GET</span> /state</div>
       <div class="api-item"><span class="api-method post">POST</span> /mcp</div>
+      <div class="api-item"><span class="api-method post">POST</span> /analyze</div>
       <div class="api-item"><span class="api-method get">GET</span> /openapi.json</div>
     </div>
   </div>
@@ -305,6 +327,117 @@ let currentTaskId = null;
 let isDone = false;
 let stepCount = 0;
 let autoFixRunning = false;
+let analyzeMode = false;
+
+// ─── Analyze GitHub repo ────────────────────────────────────────────
+
+async function analyzeRepo() {
+  const input = document.getElementById('repoUrlInput');
+  const statusEl = document.getElementById('analyzeStatus');
+  const btn = document.getElementById('btnAnalyze');
+  let url = input.value.trim();
+
+  if (!url) { statusEl.textContent = 'Please enter a GitHub repository URL'; return; }
+
+  // Auto-prepend https if missing
+  if (url.match(/^github\.com\//)) url = 'https://' + url;
+  // Strip trailing slashes, .git suffix
+  url = url.replace(/\/+$/, '').replace(/\.git$/, '');
+
+  if (!url.match(/^https?:\/\/(www\.)?github\.com\/.+\/.+/)) {
+    statusEl.textContent = 'Please enter a valid GitHub URL (e.g. https://github.com/owner/repo)';
+    return;
+  }
+
+  // Switch to analyze mode
+  analyzeMode = true;
+  currentTaskId = null;
+  document.querySelectorAll('.task-card').forEach(c => c.classList.remove('active'));
+
+  statusEl.innerHTML = '<span class="pulsing">Cloning and analyzing... this may take up to 2 minutes</span>';
+  btn.disabled = true;
+
+  document.getElementById('idleState').style.display = 'none';
+  document.getElementById('activeState').style.display = 'block';
+  showLoading(true);
+
+  // Hide demo-only buttons in analyze mode
+  document.getElementById('btnAutoFix').style.display = 'none';
+  document.getElementById('btnStep').style.display = 'none';
+  document.getElementById('btnDryRun').style.display = 'none';
+  document.getElementById('btnReset').style.display = 'none';
+
+  document.getElementById('historyBody').innerHTML = '<div class="history-empty">Analyzing external repository...</div>';
+  document.getElementById('historyCount').textContent = '';
+
+  try {
+    const data = await apiPost('/analyze', { repo_url: url });
+
+    document.getElementById('cargoToml').textContent = data.cargo_toml || '(not found)';
+    document.getElementById('mainRs').textContent = data.main_rs || '(not found)';
+
+    const compEl = document.getElementById('compilerOutput');
+    compEl.textContent = data.compiler_output || '(no output)';
+
+    if (data.builds) {
+      compEl.classList.add('success');
+      compEl.classList.remove('compiler');
+      statusEl.innerHTML = '<span style="color:var(--green)">This project builds successfully.</span>';
+    } else {
+      compEl.classList.remove('success');
+      compEl.classList.add('compiler');
+      statusEl.innerHTML = '<span style="color:var(--red)">' + data.error_count + ' error(s) found.</span> ' +
+        '<span style="color:var(--muted)">Files: ' + data.files_found.join(', ') + '</span>';
+    }
+
+    document.getElementById('metricStep').textContent = '-';
+    document.getElementById('metricErrors').textContent = data.error_count;
+    document.getElementById('metricErrors').style.color = data.error_count === 0 ? 'var(--green)' : 'var(--red)';
+    document.getElementById('metricReward').textContent = data.builds ? '1.00' : '0.00';
+    document.getElementById('metricReward').className = 'value ' + (data.builds ? 'reward-high' : 'reward-low');
+    const doneEl = document.getElementById('metricDone');
+    doneEl.textContent = data.builds ? 'Builds' : data.error_count + ' Errors';
+    doneEl.className = 'value ' + (data.builds ? 'done-yes' : 'done-no');
+    doneEl.style.fontSize = data.builds ? '20px' : '16px';
+
+    // Show reset button so user can go back to challenges
+    document.getElementById('btnReset').style.display = '';
+    document.getElementById('btnReset').textContent = '< Back to Challenges';
+    document.getElementById('btnReset').onclick = function() {
+      analyzeMode = false;
+      document.getElementById('btnAutoFix').style.display = '';
+      document.getElementById('btnStep').style.display = '';
+      document.getElementById('btnDryRun').style.display = '';
+      document.getElementById('btnReset').textContent = '\u21BB Reset';
+      document.getElementById('btnReset').onclick = resetCurrentTask;
+      document.getElementById('activeState').style.display = 'none';
+      document.getElementById('idleState').style.display = '';
+      statusEl.textContent = '';
+    };
+
+    document.getElementById('historyBody').innerHTML =
+      '<div class="history-item fade-in">' +
+      '<span class="step-num">Clone</span>' +
+      '<span class="step-action">' + esc(url.replace('https://github.com/', '')) + '</span>' +
+      '<span class="step-reward ' + (data.builds ? 'pos' : 'zero') + '">' + (data.builds ? 'pass' : 'fail') + '</span>' +
+      '<span class="step-errors">' + data.error_count + ' error(s), ' + data.warning_count + ' warning(s)</span>' +
+      '</div>';
+
+  } catch (e) {
+    statusEl.innerHTML = '<span style="color:var(--red)">Error: ' + esc(e.message) + '</span>';
+    document.getElementById('compilerOutput').textContent = 'Analysis failed: ' + e.message;
+  }
+
+  showLoading(false);
+  btn.disabled = false;
+}
+
+// Allow Enter key to trigger analyze
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('repoUrlInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') analyzeRepo();
+  });
+});
 
 // ─── Pre-computed fixes for demo (no LLM keys needed) ───────────────
 

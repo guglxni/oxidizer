@@ -23,6 +23,7 @@ import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal, Optional
+from urllib.parse import urlparse
 
 from fastapi import Body, FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse
@@ -173,6 +174,22 @@ class StepResponse(BaseModel):
     reward: Reward
     done: bool = Field(default=False, description="True when the episode is complete")
     info: Info
+
+
+class AnalyzeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    repo_url: str = Field(..., description="GitHub repository URL to analyze")
+
+
+class AnalyzeResponse(BaseModel):
+    repo_url: str
+    cargo_toml: str = Field(default="")
+    main_rs: str = Field(default="")
+    compiler_output: str = Field(default="")
+    error_count: int = Field(default=0)
+    warning_count: int = Field(default=0)
+    builds: bool = Field(default=False)
+    files_found: list = Field(default_factory=list)
 
 
 class HealthResponse(BaseModel):
@@ -753,6 +770,110 @@ async def list_tasks():
             for i, t in enumerate(TASKS)
         ]
     }
+
+
+def _clone_and_check(repo_url: str) -> AnalyzeResponse:
+    """
+    Clone a GitHub repo (depth=1), find Cargo.toml + src/main.rs, run cargo check.
+    Runs in a thread-pool executor — never blocks the event loop.
+    """
+    import re
+
+    # A02 — validate URL is a GitHub repo (SSRF mitigation)
+    parsed = urlparse(repo_url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError("Only http/https URLs are allowed")
+    if parsed.hostname not in ("github.com", "www.github.com"):
+        raise ValueError("Only github.com repositories are supported")
+
+    with tempfile.TemporaryDirectory(prefix="oxidizer_analyze_") as tmpdir:
+        clone_dir = Path(tmpdir) / "repo"
+
+        # Clone with depth=1, timeout 60s
+        try:
+            subprocess.run(
+                ["git", "clone", "--depth=1", repo_url, str(clone_dir)],
+                capture_output=True, text=True, timeout=60, check=True,
+            )
+        except subprocess.TimeoutExpired:
+            raise ValueError("Repository clone timed out (60s limit)")
+        except subprocess.CalledProcessError as exc:
+            raise ValueError(f"Clone failed: {exc.stderr[:200]}")
+
+        # Find Cargo.toml — check root first, then search
+        cargo_path = clone_dir / "Cargo.toml"
+        src_main_path = clone_dir / "src" / "main.rs"
+
+        files_found = []
+        if cargo_path.exists():
+            files_found.append("Cargo.toml")
+        if src_main_path.exists():
+            files_found.append("src/main.rs")
+
+        # Also check for lib.rs
+        src_lib_path = clone_dir / "src" / "lib.rs"
+        if src_lib_path.exists():
+            files_found.append("src/lib.rs")
+
+        if not cargo_path.exists():
+            return AnalyzeResponse(
+                repo_url=repo_url,
+                compiler_output="No Cargo.toml found in repository root. Is this a Rust project?",
+                files_found=files_found,
+            )
+
+        cargo_toml = cargo_path.read_text(encoding="utf-8", errors="replace")[:65536]
+        main_rs = ""
+        if src_main_path.exists():
+            main_rs = src_main_path.read_text(encoding="utf-8", errors="replace")[:65536]
+        elif src_lib_path.exists():
+            main_rs = src_lib_path.read_text(encoding="utf-8", errors="replace")[:65536]
+            files_found = [f.replace("src/main.rs", "src/lib.rs") if f == "src/main.rs" else f for f in files_found]
+
+        # Run cargo check
+        env = os.environ.copy()
+        env["CARGO_TERM_COLOR"] = "never"
+        env["RUST_BACKTRACE"] = "0"
+        try:
+            result = subprocess.run(
+                ["cargo", "check"],
+                cwd=str(clone_dir),
+                capture_output=True, text=True, timeout=120, check=False, env=env,
+            )
+            compiler_output = f"{result.stdout}\n{result.stderr}".strip()
+        except subprocess.TimeoutExpired:
+            compiler_output = "cargo check timed out after 120s"
+            result = type("R", (), {"returncode": 1})()
+        except Exception as exc:
+            compiler_output = f"cargo check error: {type(exc).__name__}"
+            result = type("R", (), {"returncode": 1})()
+
+        error_count = RustFixerEnv._count_errors(compiler_output)
+        warning_count = RustFixerEnv._count_warnings(compiler_output)
+
+        return AnalyzeResponse(
+            repo_url=repo_url,
+            cargo_toml=cargo_toml,
+            main_rs=main_rs,
+            compiler_output=compiler_output[:8192],
+            error_count=error_count,
+            warning_count=warning_count,
+            builds=(result.returncode == 0),
+            files_found=files_found,
+        )
+
+
+@app.post("/analyze", response_model=AnalyzeResponse)
+async def analyze_repo(request: AnalyzeRequest):
+    """Clone a GitHub Rust repo, run cargo check, and return the analysis."""
+    try:
+        async with _CARGO_SEMAPHORE:
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(None, _clone_and_check, request.repo_url)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise _opaque_error(exc, "analyze failed") from exc
 
 
 @app.get("/metadata")
