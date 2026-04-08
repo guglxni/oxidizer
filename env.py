@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Literal, Optional
 
 from fastapi import Body, FastAPI, Header, HTTPException, Request
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -65,25 +65,62 @@ class Observation(BaseModel):
 
 
 class Action(BaseModel):
-    """One edit: which file to overwrite and with what content."""
+    """
+    One agent action. Three modes:
+
+    - file_to_edit = "Cargo.toml" | "src/main.rs"
+        Classic single-file edit.  new_content required.
+    - file_to_edit = "both_files"
+        Atomic edit of both files in one step.
+        cargo_toml_content + main_rs_content required.  new_content unused.
+    - file_to_edit = "dry_run"
+        Re-runs cargo check without touching any file.
+        Useful for a planning step to refresh compiler diagnostics.
+        No content fields required.  Reward is always 0.0 / not done.
+    """
     model_config = ConfigDict(extra="forbid")  # A03 — reject unknown fields
 
-    file_to_edit: Literal["Cargo.toml", "src/main.rs"] = Field(
+    file_to_edit: Literal["Cargo.toml", "src/main.rs", "both_files", "dry_run"] = Field(
         ...,
-        description="Must be exactly 'Cargo.toml' or 'src/main.rs'",
+        description="'Cargo.toml', 'src/main.rs', 'both_files', or 'dry_run'",
     )
-    new_content: str = Field(
-        ...,
-        description="Complete new file content",
-        max_length=131_072,  # 128 KB — prevents resource exhaustion (A05)
+    new_content: Optional[str] = Field(
+        default=None,
+        description="Complete new file content (required for single-file edits)",
+        max_length=131_072,
+    )
+    cargo_toml_content: Optional[str] = Field(
+        default=None,
+        description="New Cargo.toml content (required when file_to_edit='both_files')",
+        max_length=131_072,
+    )
+    main_rs_content: Optional[str] = Field(
+        default=None,
+        description="New src/main.rs content (required when file_to_edit='both_files')",
+        max_length=131_072,
     )
 
-    @field_validator("new_content")
+    @field_validator("new_content", "cargo_toml_content", "main_rs_content", mode="before")
     @classmethod
-    def no_null_bytes(cls, v: str) -> str:
-        if "\x00" in v:
-            raise ValueError("new_content must not contain null bytes")
+    def no_null_bytes(cls, v: Optional[str]) -> Optional[str]:
+        if v and "\x00" in v:
+            raise ValueError("content must not contain null bytes")
         return v
+
+    @model_validator(mode="after")
+    def validate_fields_for_mode(self) -> "Action":
+        fte = self.file_to_edit
+        if fte in ("Cargo.toml", "src/main.rs"):
+            if not self.new_content:
+                raise ValueError(f"new_content is required when file_to_edit='{fte}'")
+        elif fte == "both_files":
+            if not self.cargo_toml_content or not self.main_rs_content:
+                raise ValueError(
+                    "cargo_toml_content and main_rs_content are both required "
+                    "when file_to_edit='both_files'"
+                )
+        # dry_run: no content fields required
+        return self
 
 
 class Reward(BaseModel):
@@ -98,6 +135,7 @@ class Info(BaseModel):
     initial_error_count: int = Field(default=0, description="Error count at episode start")
     errors_fixed: int = Field(default=0, description="Errors fixed since reset")
     regression: bool = Field(default=False, description="True if error count increased this step")
+    is_dry_run: bool = Field(default=False, description="True if this step was a dry_run (no files changed)")
     step_count: int = Field(default=0)
     task_name: str = Field(default="")
     task_id: int = Field(default=0)
@@ -454,12 +492,20 @@ class RustFixerEnv:
             len(action.new_content.encode()),
         )
 
+        is_dry_run = action.file_to_edit == "dry_run"
+
         if action.file_to_edit == "Cargo.toml":
             (ws / "Cargo.toml").write_text(action.new_content, encoding="utf-8")
-        else:
+        elif action.file_to_edit == "src/main.rs":
             src = ws / "src"
             src.mkdir(parents=True, exist_ok=True)
             (src / "main.rs").write_text(action.new_content, encoding="utf-8")
+        elif action.file_to_edit == "both_files":
+            src = ws / "src"
+            src.mkdir(parents=True, exist_ok=True)
+            (ws / "Cargo.toml").write_text(action.cargo_toml_content, encoding="utf-8")
+            (src / "main.rs").write_text(action.main_rs_content, encoding="utf-8")
+        # dry_run: write nothing, just re-run cargo check
 
         returncode, compiler_output = self._run_cargo_check()
         cargo_toml_content, main_rs_content = self._read_files()
@@ -472,11 +518,15 @@ class RustFixerEnv:
 
         current_errors = self._count_errors(compiler_output)
         current_warnings = self._count_warnings(compiler_output)
-        regression = current_errors > self._previous_error_count
-        self._previous_error_count = current_errors
+        regression = (not is_dry_run) and (current_errors > self._previous_error_count)
+        if not is_dry_run:
+            self._previous_error_count = current_errors
 
         # --- Reward with partial progress + regression penalty ---
-        if returncode == 0:
+        if is_dry_run:
+            # Planning step — refreshes diagnostics, no file changes, no reward.
+            self._last_reward = Reward(score=0.0, is_done=False)
+        elif returncode == 0:
             # Build passed.  Deduct slightly for warnings (quality gate).
             score = 1.0 if current_warnings == 0 else max(0.95, 1.0 - current_warnings * 0.01)
             self._last_reward = Reward(score=round(score, 2), is_done=True)
@@ -506,6 +556,7 @@ class RustFixerEnv:
             initial_error_count=self._initial_error_count,
             errors_fixed=max(0, self._initial_error_count - current_errors),
             regression=regression,
+            is_dry_run=is_dry_run,
             step_count=self._step_count,
             task_name=self._current_task.name if self._current_task else "",
             task_id=self._current_task_idx,
@@ -725,21 +776,111 @@ async def schema():
     }
 
 
+_MCP_TOOLS = [
+    {
+        "name": "get_compiler_errors",
+        "description": (
+            "Parse the current compiler output and return a structured list of "
+            "error codes and messages. Useful for planning which files to fix."
+        ),
+        "inputSchema": {"type": "object", "properties": {}, "required": []},
+    },
+    {
+        "name": "get_task_state",
+        "description": (
+            "Return the current environment state: task name, error counts, "
+            "step count, and latest compiler output."
+        ),
+        "inputSchema": {"type": "object", "properties": {}, "required": []},
+    },
+    {
+        "name": "list_tasks",
+        "description": "Return descriptions of all 5 available tasks with their difficulty levels.",
+        "inputSchema": {"type": "object", "properties": {}, "required": []},
+    },
+]
+
+
+def _mcp_error(req_id, code: int, message: str):
+    return {"jsonrpc": "2.0", "id": req_id, "error": {"code": code, "message": message}}
+
+
 @app.post("/mcp")
-async def mcp():
+async def mcp(request: Request):
     """
-    Minimal JSON-RPC 2.0 handshake (required by openenv validate --url).
-    Returns the required jsonrpc: '2.0' field so the validator marks this pass.
+    JSON-RPC 2.0 endpoint.  Supports:
+      initialize    — capability handshake (required by openenv validate)
+      tools/list    — enumerate available agent tools
+      tools/call    — invoke a tool by name
     """
-    return {
-        "jsonrpc": "2.0",
-        "method": "initialize",
-        "result": {
-            "name": "rust-swe-agent-env",
-            "version": "1.0.0",
-            "capabilities": ["reset", "step", "state", "schema"],
-        },
-    }
+    try:
+        body = await request.json()
+    except Exception:
+        return _mcp_error(None, -32700, "Parse error")
+
+    req_id = body.get("id")
+    method = body.get("method", "")
+
+    if method == "initialize":
+        return {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "result": {
+                "name": "rust-swe-agent-env",
+                "version": "1.0.0",
+                "capabilities": {
+                    "tools": True,
+                    "actions": ["Cargo.toml", "src/main.rs", "both_files", "dry_run"],
+                },
+            },
+        }
+
+    if method == "tools/list":
+        return {"jsonrpc": "2.0", "id": req_id, "result": {"tools": _MCP_TOOLS}}
+
+    if method == "tools/call":
+        params = body.get("params", {})
+        tool_name = params.get("name", "")
+
+        if tool_name == "get_compiler_errors":
+            import re as _re
+            async with _ENV_LOCK:
+                env = get_env()
+                if env._last_observation is None:
+                    return _mcp_error(req_id, -32002, "Call reset() first")
+                raw = env._last_observation.compiler_output
+                errors = _re.findall(r"error\[([A-Z]\d+)\].*", raw)
+                return {
+                    "jsonrpc": "2.0", "id": req_id,
+                    "result": {
+                        "error_count": env._last_info.error_count,
+                        "error_codes": errors,
+                        "compiler_output": raw,
+                    },
+                }
+
+        if tool_name == "get_task_state":
+            async with _ENV_LOCK:
+                try:
+                    state = get_env().get_state()
+                except RuntimeError as exc:
+                    return _mcp_error(req_id, -32002, str(exc))
+            return {"jsonrpc": "2.0", "id": req_id, "result": state.model_dump()}
+
+        if tool_name == "list_tasks":
+            return {
+                "jsonrpc": "2.0", "id": req_id,
+                "result": {
+                    "tasks": [
+                        {"id": i, "name": t.name, "description": t.description}
+                        for i, t in enumerate(TASKS)
+                    ]
+                },
+            }
+
+        return _mcp_error(req_id, -32601, f"Unknown tool: {tool_name!r}")
+
+    return _mcp_error(req_id, -32601, f"Method not found: {method!r}")
 
 
 # =============================================================================

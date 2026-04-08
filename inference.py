@@ -101,24 +101,41 @@ _warn_config()
 SYSTEM_PROMPT = """\
 You are a Rust compilation-error fixing agent operating inside an RL loop.
 
-Each turn you receive a JSON object with three keys:
+Each turn you receive a JSON object with four keys:
   "cargo_toml"       – current Cargo.toml content
   "main_rs"          – current src/main.rs content
   "compiler_output"  – output of `cargo check --color never`
+  "step"             – current step number (1-indexed)
 
-You must reply with ONLY a JSON object — no prose, no markdown fences:
+You must reply with ONLY a JSON object — no prose, no markdown fences.
+
+=== THREE ACTION TYPES ===
+
+1. SINGLE FILE EDIT (edit one file):
 {"file_to_edit": "Cargo.toml" | "src/main.rs", "new_content": "<full file content>"}
 
-Rules:
-1. Edit exactly ONE file per turn.
-2. Provide the COMPLETE new content of that file.
-3. Properly JSON-escape all backslashes, quotes, and newlines in new_content.
-4. Read the compiler error codes (E0432, E0412, E0425 …) before deciding.
+2. BOTH FILES (atomic edit when errors span both files — saves a step):
+{"file_to_edit": "both_files", "cargo_toml_content": "<full Cargo.toml>", "main_rs_content": "<full main.rs>"}
+Use this when compiler errors are in BOTH files simultaneously.
 
-Common patterns:
-- E0432 / "unresolved import"  → add the crate to [dependencies] in Cargo.toml
-- E0277 / "Serialize not implemented" with serde → add features=["derive"]
-- E0001 / "unexpected token" after a let binding → add the missing semicolon\
+3. DRY RUN (re-read diagnostics without changing anything):
+{"file_to_edit": "dry_run"}
+Use this ONLY on step 1 if you are genuinely unsure which file to edit first.
+It costs a step and gives 0 reward, so use it sparingly.
+
+=== RULES ===
+1. Provide COMPLETE file content — never partial diffs or snippets.
+2. JSON-escape all backslashes, quotes, and newlines inside content strings.
+3. Read error codes (E0432, E0412, E0277 …) before deciding.
+4. If errors are in BOTH files, prefer both_files over two separate edits.
+
+=== COMMON PATTERNS ===
+- E0432 / "unresolved import"      → add the crate to [dependencies] in Cargo.toml
+- E0277 / "trait not implemented"
+  with serde Serialize/Deserialize  → add features=["derive"] to serde in Cargo.toml
+- E0001 / "unexpected token"
+  after a let binding               → add the missing semicolon in src/main.rs
+- Multiple unresolved imports       → add ALL missing crates in one Cargo.toml edit\
 """
 
 
@@ -164,7 +181,7 @@ class LLMClient:
             api_key=token or "",
         )
 
-    def get_action(self, observation: Observation) -> tuple[Optional[Action], Optional[str]]:
+    def get_action(self, observation: Observation, step: int = 1) -> tuple[Optional[Action], Optional[str]]:
         """
         Returns (Action, None) on success, (None, error_str) on failure.
 
@@ -177,6 +194,7 @@ class LLMClient:
             "cargo_toml": observation.cargo_toml_content,
             "main_rs": observation.main_rs_content,
             "compiler_output": _sanitise_compiler_output(observation.compiler_output),
+            "step": step,
         }
         user_prompt = (
             "Analyse this Rust project and return the JSON fix object:\n"
@@ -223,7 +241,7 @@ def _parse_action(content: str) -> Optional[Action]:
         candidates.append(fence_match.group(1))
 
     bare_match = re.search(
-        r'\{[^{}]*"file_to_edit"[^{}]*"new_content"[^{}]*\}',
+        r'\{[^{}]*"file_to_edit"[^{}]*\}',
         content,
         re.DOTALL,
     )
@@ -236,9 +254,24 @@ def _parse_action(content: str) -> Optional[Action]:
         try:
             data = json.loads(candidate)
             fte = data.get("file_to_edit", "")
+
+            if fte == "dry_run":
+                return Action(file_to_edit="dry_run")
+
+            if fte == "both_files":
+                ctc = data.get("cargo_toml_content", "")
+                mrc = data.get("main_rs_content", "")
+                if ctc and mrc:
+                    return Action(
+                        file_to_edit="both_files",
+                        cargo_toml_content=ctc,
+                        main_rs_content=mrc,
+                    )
+
             nc = data.get("new_content", "")
             if fte in ("Cargo.toml", "src/main.rs") and nc:
                 return Action(file_to_edit=fte, new_content=nc)
+
         except (json.JSONDecodeError, ValueError):
             continue
 
@@ -285,7 +318,7 @@ class StructuredLogger:
         self.rewards.append(f"{reward.score:.2f}")
         sys.stdout.write(
             f"[STEP] step={step}"
-            f" action={self._tok('edit:' + action.file_to_edit)}"
+            f" action={self._tok(action.file_to_edit)}"
             f" reward={reward.score:.2f}"
             f" done={'true' if reward.is_done else 'false'}"
             f" error={'null' if error is None else self._tok(error)}\n"
@@ -341,7 +374,7 @@ def run_agent(task_id: int, benchmark: str = BENCHMARK) -> Tuple[bool, int, floa
 
     try:
         for step in range(1, MAX_STEPS + 1):
-            action, err = llm.get_action(observation)
+            action, err = llm.get_action(observation, step=step)
 
             if action is None:
                 slog.log_step_error(step, err or "unknown_error")
