@@ -24,7 +24,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal, Optional
 
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import Body, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 logger = logging.getLogger(__name__)
@@ -487,13 +487,18 @@ async def health_check():
 
 
 @app.post("/reset", response_model=Observation)
-async def reset(request: ResetRequest):
+async def reset(request: Optional[ResetRequest] = Body(default=None)):
+    """
+    Reset the environment.  Body is fully optional:
+      - no body / null body  → cycles to the next task
+      - {}                   → same as no body
+      - {"task_id": 0|1|2}  → selects a specific task
+    """
     try:
+        task_id = request.task_id if request else None
         async with _CARGO_SEMAPHORE, _ENV_LOCK:
             loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(
-                None, get_env().reset, request.task_id
-            )
+            return await loop.run_in_executor(None, get_env().reset, task_id)
     except HTTPException:
         raise
     except Exception as exc:
@@ -501,7 +506,7 @@ async def reset(request: ResetRequest):
 
 
 @app.post("/step", response_model=StepResponse)
-async def step(request: StepRequest):
+async def step(request: StepRequest = Body(...)):
     try:
         async with _CARGO_SEMAPHORE, _ENV_LOCK:
             loop = asyncio.get_event_loop()
