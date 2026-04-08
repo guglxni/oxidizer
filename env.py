@@ -461,6 +461,26 @@ def _opaque_error(exc: Exception, context: str) -> HTTPException:
 # ---------------------------------------------------------------------------
 
 
+@app.get("/")
+async def root():
+    """Landing page — confirms the server is up and lists available endpoints."""
+    return {
+        "name": "rust-swe-agent-env",
+        "status": "running",
+        "description": "OpenEnv RL environment — AI agent fixes broken Rust builds via cargo check",
+        "endpoints": {
+            "health":   "GET  /health",
+            "metadata": "GET  /metadata",
+            "schema":   "GET  /schema",
+            "tasks":    "GET  /tasks",
+            "reset":    "POST /reset",
+            "step":     "POST /step",
+            "state":    "GET  /state",
+            "mcp":      "POST /mcp",
+        },
+    }
+
+
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     return HealthResponse(status="healthy", environment="rust-swe-agent-env", version="1.0.0")
