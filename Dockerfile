@@ -56,6 +56,7 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 
 # ── Application code ──────────────────────────────────────────────────────────
 COPY env.py inference.py openenv.yaml ./
+COPY static/ ./static/
 
 # ── Non-root user ─────────────────────────────────────────────────────────────
 # chown -R covers /app/.cargo and /app/.rustup so appuser can update the

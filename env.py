@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Literal, Optional
 
 from fastapi import Body, FastAPI, Header, HTTPException, Request
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
@@ -675,7 +676,10 @@ def _opaque_error(exc: Exception, context: str) -> HTTPException:
 
 @app.get("/")
 async def root():
-    """Landing page — confirms the server is up and lists available endpoints."""
+    """Interactive demo UI.  Falls back to JSON if the HTML file is missing."""
+    html_path = Path(__file__).parent / "static" / "index.html"
+    if html_path.exists():
+        return FileResponse(str(html_path), media_type="text/html")
     return {
         "name": "rust-swe-agent-env",
         "status": "running",
