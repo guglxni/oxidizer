@@ -30,10 +30,27 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
+
+# In-memory audit ring buffer (last 200 log lines surfaced at /logs)
+import collections
+_AUDIT_BUFFER: collections.deque = collections.deque(maxlen=200)
+
+class _AuditHandler(logging.Handler):
+    def emit(self, record: logging.LogRecord) -> None:
+        _AUDIT_BUFFER.append({
+            "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
+            "level": record.levelname,
+            "msg": record.getMessage(),
+        })
+
+_audit_handler = _AuditHandler()
+_audit_handler.setLevel(logging.INFO)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
+logging.getLogger().addHandler(_audit_handler)
 
 # ---------------------------------------------------------------------------
 # Optional server-side API key (A01 Broken Access Control).
@@ -648,6 +665,24 @@ _UNPROTECTED_PATHS = {"/health"}
 
 
 @app.middleware("http")
+async def audit_middleware(request: Request, call_next):
+    """Log every request with method, path, status, and wall-time."""
+    import time
+    t0 = time.monotonic()
+    response = await call_next(request)
+    elapsed_ms = (time.monotonic() - t0) * 1000
+    logger.info(
+        "REQUEST method=%s path=%s status=%d elapsed_ms=%.1f remote=%s",
+        request.method,
+        request.url.path,
+        response.status_code,
+        elapsed_ms,
+        request.client.host if request.client else "unknown",
+    )
+    return response
+
+
+@app.middleware("http")
 async def api_key_middleware(request: Request, call_next):
     if _SERVER_API_KEY and request.url.path not in _UNPROTECTED_PATHS:
         provided = request.headers.get("X-Api-Key", "")
@@ -719,6 +754,14 @@ async def health_check():
     return HealthResponse(status="healthy", environment="rust-swe-agent-env", version="1.0.0")
 
 
+@app.get("/logs")
+async def get_logs(n: int = 50):
+    """Return the last N audit log entries (max 200). Useful for debugging."""
+    n = min(n, 200)
+    entries = list(_AUDIT_BUFFER)[-n:]
+    return {"count": len(entries), "entries": entries}
+
+
 @app.post("/reset", response_model=Observation)
 async def reset(request: Optional[ResetRequest] = Body(default=None)):
     """
@@ -774,98 +817,147 @@ async def list_tasks():
 
 def _clone_and_check(repo_url: str) -> AnalyzeResponse:
     """
-    Clone a GitHub repo (depth=1), find Cargo.toml + src/main.rs, run cargo check.
+    Clone a GitHub repo (depth=1), detect workspace vs single-crate,
+    run the appropriate cargo check command, and return structured results.
     Runs in a thread-pool executor — never blocks the event loop.
+
+    BUG FIXED: workspace repos (e.g. rustlings) now use `cargo check --workspace`
+    so all member crates are checked, not just the (empty) root manifest.
     """
     import re
+    import time
+
+    audit_id = str(uuid.uuid4())[:8]
+    t_start = time.monotonic()
+
+    logger.info("ANALYZE_START audit_id=%s repo=%s", audit_id, repo_url)
 
     # A02 — validate URL is a GitHub repo (SSRF mitigation)
     parsed = urlparse(repo_url)
     if parsed.scheme not in ("http", "https"):
+        logger.warning("ANALYZE_REJECT audit_id=%s reason=bad_scheme url=%s", audit_id, repo_url)
         raise ValueError("Only http/https URLs are allowed")
     if parsed.hostname not in ("github.com", "www.github.com"):
+        logger.warning("ANALYZE_REJECT audit_id=%s reason=non_github host=%s", audit_id, parsed.hostname)
         raise ValueError("Only github.com repositories are supported")
 
     with tempfile.TemporaryDirectory(prefix="oxidizer_analyze_") as tmpdir:
         clone_dir = Path(tmpdir) / "repo"
 
-        # Clone with depth=1, timeout 60s
+        # ── Clone ──────────────────────────────────────────────────────
+        t_clone = time.monotonic()
         try:
             subprocess.run(
                 ["git", "clone", "--depth=1", repo_url, str(clone_dir)],
                 capture_output=True, text=True, timeout=60, check=True,
             )
         except subprocess.TimeoutExpired:
+            logger.error("ANALYZE_CLONE_TIMEOUT audit_id=%s elapsed=%.1fs", audit_id, time.monotonic() - t_clone)
             raise ValueError("Repository clone timed out (60s limit)")
         except subprocess.CalledProcessError as exc:
+            logger.error("ANALYZE_CLONE_FAIL audit_id=%s stderr=%s", audit_id, exc.stderr[:200])
             raise ValueError(f"Clone failed: {exc.stderr[:200]}")
 
-        # Find Cargo.toml — check root first, then search
+        logger.info("ANALYZE_CLONED audit_id=%s elapsed=%.1fs", audit_id, time.monotonic() - t_clone)
+
+        # ── Detect project structure ───────────────────────────────────
         cargo_path = clone_dir / "Cargo.toml"
-        src_main_path = clone_dir / "src" / "main.rs"
-
-        files_found = []
-        if cargo_path.exists():
-            files_found.append("Cargo.toml")
-        if src_main_path.exists():
-            files_found.append("src/main.rs")
-
-        # Also check for lib.rs
-        src_lib_path = clone_dir / "src" / "lib.rs"
-        if src_lib_path.exists():
-            files_found.append("src/lib.rs")
-
         if not cargo_path.exists():
+            logger.warning("ANALYZE_NO_CARGO_TOML audit_id=%s", audit_id)
             return AnalyzeResponse(
                 repo_url=repo_url,
                 compiler_output="No Cargo.toml found in repository root. Is this a Rust project?",
-                files_found=files_found,
+                files_found=[],
             )
 
-        cargo_toml = cargo_path.read_text(encoding="utf-8", errors="replace")[:65536]
-        main_rs = ""
-        if src_main_path.exists():
-            main_rs = src_main_path.read_text(encoding="utf-8", errors="replace")[:65536]
-        elif src_lib_path.exists():
-            main_rs = src_lib_path.read_text(encoding="utf-8", errors="replace")[:65536]
-            files_found = [f.replace("src/main.rs", "src/lib.rs") if f == "src/main.rs" else f for f in files_found]
+        cargo_toml_text = cargo_path.read_text(encoding="utf-8", errors="replace")[:65536]
 
-        # Run cargo check
+        # Key fix: detect Cargo workspace to avoid false "builds successfully"
+        is_workspace = "[workspace]" in cargo_toml_text
+        cargo_cmd = ["cargo", "check", "--workspace"] if is_workspace else ["cargo", "check"]
+
+        logger.info(
+            "ANALYZE_PROJECT audit_id=%s is_workspace=%s cmd=%s",
+            audit_id, is_workspace, " ".join(cargo_cmd),
+        )
+
+        # Collect files found for response
+        files_found = ["Cargo.toml"]
+        src_main_path = clone_dir / "src" / "main.rs"
+        src_lib_path = clone_dir / "src" / "lib.rs"
+
+        main_rs_text = ""
+        if src_main_path.exists():
+            files_found.append("src/main.rs")
+            main_rs_text = src_main_path.read_text(encoding="utf-8", errors="replace")[:65536]
+        elif src_lib_path.exists():
+            files_found.append("src/lib.rs")
+            main_rs_text = src_lib_path.read_text(encoding="utf-8", errors="replace")[:65536]
+
+        if is_workspace:
+            # For workspaces, show the workspace Cargo.toml and a note
+            main_rs_text = (
+                "# Workspace repository — showing root Cargo.toml members.\n"
+                "# Individual crate sources are in subdirectories.\n"
+            )
+            # Collect member directories for context
+            members = re.findall(r'members\s*=\s*\[([^\]]*)\]', cargo_toml_text, re.DOTALL)
+            if members:
+                member_list = re.findall(r'"([^"]+)"', members[0])
+                main_rs_text += f"# Members ({len(member_list)}): " + ", ".join(member_list[:10])
+                if len(member_list) > 10:
+                    main_rs_text += f" ... and {len(member_list)-10} more"
+
+        # ── Run cargo check ────────────────────────────────────────────
+        t_check = time.monotonic()
         env = os.environ.copy()
         env["CARGO_TERM_COLOR"] = "never"
         env["RUST_BACKTRACE"] = "0"
+
+        returncode = 1
         try:
             result = subprocess.run(
-                ["cargo", "check"],
+                cargo_cmd,
                 cwd=str(clone_dir),
                 capture_output=True, text=True, timeout=120, check=False, env=env,
             )
             compiler_output = f"{result.stdout}\n{result.stderr}".strip()
+            returncode = result.returncode
         except subprocess.TimeoutExpired:
             compiler_output = "cargo check timed out after 120s"
-            result = type("R", (), {"returncode": 1})()
+            logger.error("ANALYZE_CHECK_TIMEOUT audit_id=%s elapsed=%.1fs", audit_id, time.monotonic() - t_check)
         except Exception as exc:
             compiler_output = f"cargo check error: {type(exc).__name__}"
-            result = type("R", (), {"returncode": 1})()
+            logger.error("ANALYZE_CHECK_ERROR audit_id=%s type=%s", audit_id, type(exc).__name__)
 
         error_count = RustFixerEnv._count_errors(compiler_output)
         warning_count = RustFixerEnv._count_warnings(compiler_output)
+        builds = (returncode == 0)
+
+        logger.info(
+            "ANALYZE_DONE audit_id=%s repo=%s workspace=%s builds=%s "
+            "errors=%d warnings=%d check_elapsed=%.1fs total_elapsed=%.1fs",
+            audit_id, repo_url, is_workspace, builds,
+            error_count, warning_count,
+            time.monotonic() - t_check,
+            time.monotonic() - t_start,
+        )
 
         return AnalyzeResponse(
             repo_url=repo_url,
-            cargo_toml=cargo_toml,
-            main_rs=main_rs,
+            cargo_toml=cargo_toml_text,
+            main_rs=main_rs_text,
             compiler_output=compiler_output[:8192],
             error_count=error_count,
             warning_count=warning_count,
-            builds=(result.returncode == 0),
+            builds=builds,
             files_found=files_found,
         )
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
 async def analyze_repo(request: AnalyzeRequest):
-    """Clone a GitHub Rust repo, run cargo check, and return the analysis."""
+    """Clone a GitHub Rust repo, run cargo check (--workspace for workspaces), return analysis."""
     try:
         async with _CARGO_SEMAPHORE:
             loop = asyncio.get_event_loop()
