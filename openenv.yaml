@@ -1,0 +1,28 @@
+name: rust-swe-agent-env
+version: 1.0.0
+description: "RL environment where an AI agent fixes broken Rust builds using cargo check"
+entrypoint: env:RustFixerEnv
+tags:
+  - "real-world"
+  - "swe"
+  - "rust"
+  - "ci-cd"
+  - "open-hackathon"
+author: "rust-swe-agent"
+license: "MIT"
+requirements:
+  - openenv-core
+  - pydantic
+  - fastapi
+  - uvicorn
+  - openai
+env:
+  - name: API_BASE_URL
+    description: "Base URL for the LLM API endpoint"
+    required: true
+  - name: MODEL_NAME
+    description: "Name of the model to use for inference"
+    required: true
+  - name: HF_TOKEN
+    description: "Hugging Face API token for authentication"
+    required: true

@@ -1,0 +1,20 @@
+# Virtual environments — never upload
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+
+# Generated artifacts — not needed in the Space or repo
+repomix-output.md
+repomix*.md
+*.egg-info/
+dist/
+build/
+
+# Secrets — should never exist as files but belt-and-suspenders
+.env
+.env.*
+*.token
+secrets.*
