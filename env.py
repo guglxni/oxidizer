@@ -36,9 +36,11 @@ import collections
 _AUDIT_BUFFER: collections.deque = collections.deque(maxlen=200)
 
 class _AuditHandler(logging.Handler):
+    _fmt = logging.Formatter()
+
     def emit(self, record: logging.LogRecord) -> None:
         _AUDIT_BUFFER.append({
-            "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
+            "ts": self._fmt.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
             "level": record.levelname,
             "msg": record.getMessage(),
         })
