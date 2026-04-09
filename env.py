@@ -39,11 +39,15 @@ class _AuditHandler(logging.Handler):
     _fmt = logging.Formatter()
 
     def emit(self, record: logging.LogRecord) -> None:
-        _AUDIT_BUFFER.append({
+        entry: dict = {
             "ts": self._fmt.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
             "level": record.levelname,
             "msg": record.getMessage(),
-        })
+        }
+        if record.exc_info:
+            import traceback
+            entry["exc"] = "".join(traceback.format_exception(*record.exc_info))
+        _AUDIT_BUFFER.append(entry)
 
 _audit_handler = _AuditHandler()
 _audit_handler.setLevel(logging.INFO)
@@ -523,11 +527,12 @@ class RustFixerEnv:
         self._step_count += 1
         ws = self._workspace()
 
+        content_bytes = len(action.new_content.encode()) if action.new_content else 0
         logger.info(
             "step=%d file=%s content_bytes=%d",
             self._step_count,
             action.file_to_edit,
-            len(action.new_content.encode()),
+            content_bytes,
         )
 
         is_dry_run = action.file_to_edit == "dry_run"
