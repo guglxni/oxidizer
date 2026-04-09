@@ -186,6 +186,12 @@ footer{border-top:1px solid var(--border);padding:24px 0;margin-top:48px;text-al
       <button id="btnAnalyze" onclick="analyzeRepo()">Analyze Repo</button>
     </div>
     <div class="analyze-status" id="analyzeStatus"></div>
+    <div style="text-align:center;margin-top:8px;font-size:12px;color:var(--muted)">
+      Try:
+      <a href="#" onclick="document.getElementById('repoUrlInput').value='https://github.com/Gankra/klutz';analyzeRepo();return false" style="color:var(--red)">klutz</a> (syntax error) &middot;
+      <a href="#" onclick="document.getElementById('repoUrlInput').value='https://github.com/Elrendio/invalid_compilation_error';analyzeRepo();return false" style="color:var(--red)">format-err</a> (3 errors) &middot;
+      <a href="#" onclick="document.getElementById('repoUrlInput').value='https://github.com/nickel-org/nickel.rs';analyzeRepo();return false" style="color:var(--green)">nickel.rs</a> (builds OK)
+    </div>
   </div>
 
   <div class="or-divider">or try a built-in challenge</div>
