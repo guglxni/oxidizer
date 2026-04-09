@@ -7,135 +7,169 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;
+  --bg:#0d1117;--surface:#161b22;--surface2:#1c2129;--border:#30363d;--text:#e6edf3;
   --muted:#8b949e;--accent:#f97316;--accent2:#ea580c;--green:#3fb950;
-  --red:#f85149;--yellow:#d29922;--blue:#58a6ff;--code-bg:#0d1117;
-  --radius:8px;--mono:'SF Mono','Cascadia Code','Fira Code',monospace;
+  --red:#f85149;--yellow:#d29922;--blue:#58a6ff;--purple:#bc8cff;
+  --radius:10px;--mono:'SF Mono','Cascadia Code','Fira Code',monospace;
 }
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
   background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
-a{color:var(--blue);text-decoration:none}
-a:hover{text-decoration:underline}
+a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
 
 /* Layout */
-.container{max-width:1280px;margin:0 auto;padding:0 24px}
-header{border-bottom:1px solid var(--border);padding:20px 0;background:var(--surface)}
+.container{max-width:1200px;margin:0 auto;padding:0 24px}
+header{border-bottom:1px solid var(--border);padding:16px 0;background:var(--surface)}
 .header-inner{display:flex;align-items:center;gap:16px}
-.logo{font-size:28px;font-weight:700;color:var(--accent);letter-spacing:-0.5px;display:flex;align-items:center;gap:10px}
-.logo span{font-size:32px}
-.tagline{color:var(--muted);font-size:14px;margin-left:auto}
+.logo{font-size:26px;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:10px}
+.logo span{font-size:30px}
+.header-links{margin-left:auto;display:flex;gap:20px;font-size:13px}
+.header-links a{color:var(--muted)}
+.header-links a:hover{color:var(--text);text-decoration:none}
 
 /* Hero */
-.hero{padding:48px 0 32px;text-align:center}
-.hero h1{font-size:20px;font-weight:400;color:var(--muted);max-width:700px;margin:0 auto 24px}
-.hero-badges{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
-.badge{background:var(--surface);border:1px solid var(--border);padding:4px 12px;border-radius:20px;font-size:12px;color:var(--muted)}
+.hero{padding:56px 0 40px;text-align:center}
+.hero-title{font-size:42px;font-weight:800;line-height:1.2;margin-bottom:16px;
+  background:linear-gradient(135deg,var(--accent),var(--yellow));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-sub{font-size:18px;color:var(--muted);max-width:640px;margin:0 auto 28px;font-weight:400}
+.hero-badges{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:32px}
+.badge{background:var(--surface);border:1px solid var(--border);padding:5px 14px;border-radius:20px;font-size:12px;color:var(--muted);font-weight:500}
 .badge.live{border-color:var(--green);color:var(--green)}
 
 /* Repo Input */
-.repo-input-wrap{max-width:700px;margin:28px auto 0;display:flex;gap:8px}
-.repo-input-wrap input{flex:1;padding:12px 16px;border-radius:var(--radius);border:2px solid var(--border);
+.repo-box{max-width:680px;margin:0 auto}
+.repo-input-wrap{display:flex;gap:8px}
+.repo-input-wrap input{flex:1;padding:14px 18px;border-radius:var(--radius);border:2px solid var(--border);
   background:var(--surface);color:var(--text);font-size:15px;font-family:var(--mono);outline:none;transition:border-color .2s}
 .repo-input-wrap input:focus{border-color:var(--accent)}
-.repo-input-wrap input::placeholder{color:var(--muted)}
-.repo-input-wrap button{padding:12px 24px;border-radius:var(--radius);background:var(--accent);color:#fff;
-  font-weight:700;font-size:14px;border:none;cursor:pointer;white-space:nowrap;transition:background .15s}
-.repo-input-wrap button:hover:not(:disabled){background:var(--accent2)}
+.repo-input-wrap input::placeholder{color:#4a5568}
+.repo-input-wrap button{padding:14px 28px;border-radius:var(--radius);background:var(--accent);color:#fff;
+  font-weight:700;font-size:14px;border:none;cursor:pointer;white-space:nowrap;transition:all .15s}
+.repo-input-wrap button:hover:not(:disabled){background:var(--accent2);transform:translateY(-1px)}
 .repo-input-wrap button:disabled{opacity:.4;cursor:not-allowed}
 .analyze-status{text-align:center;margin-top:10px;font-size:13px;color:var(--muted)}
-.or-divider{text-align:center;color:var(--muted);font-size:13px;margin:20px 0 4px;text-transform:uppercase;letter-spacing:2px}
+.try-links{text-align:center;margin-top:10px;font-size:12px;color:var(--muted)}
+.try-links a{font-weight:600;cursor:pointer}
 
-/* Task Selector */
+/* Divider */
+.or-divider{text-align:center;color:var(--border);font-size:12px;margin:32px 0 8px;text-transform:uppercase;letter-spacing:3px;
+  display:flex;align-items:center;gap:16px}
+.or-divider::before,.or-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* How it Works */
+.how-it-works{padding:40px 0}
+.hiw-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+@media(max-width:768px){.hiw-grid{grid-template-columns:1fr 1fr}}
+.hiw-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px 20px;text-align:center}
+.hiw-num{display:inline-flex;width:36px;height:36px;align-items:center;justify-content:center;
+  border-radius:50%;background:rgba(249,115,22,0.12);color:var(--accent);font-weight:700;font-size:16px;margin-bottom:12px}
+.hiw-card h3{font-size:14px;margin-bottom:6px}
+.hiw-card p{font-size:12px;color:var(--muted);line-height:1.5}
+
+/* Section */
 .section{padding:24px 0}
-.section-title{font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:16px}
+.section-title{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:16px}
+
+/* Task cards */
 .tasks-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
 @media(max-width:900px){.tasks-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:600px){.tasks-grid{grid-template-columns:1fr 1fr}}
 .task-card{background:var(--surface);border:2px solid var(--border);border-radius:var(--radius);
   padding:16px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
-.task-card:hover{border-color:var(--accent);transform:translateY(-2px)}
-.task-card.active{border-color:var(--accent);background:rgba(249,115,22,0.08)}
-.task-card .diff{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.task-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 4px 12px rgba(249,115,22,0.1)}
+.task-card.active{border-color:var(--accent);background:rgba(249,115,22,0.06)}
+.task-card .diff{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
 .task-card .diff.easy{color:var(--green)}.task-card .diff.medium{color:var(--yellow)}
-.task-card .diff.hard{color:var(--red)}.task-card .diff.expert{color:#f472b6}
-.task-card h3{font-size:14px;margin-bottom:4px}
-.task-card p{font-size:12px;color:var(--muted);line-height:1.4}
+.task-card .diff.hard{color:var(--red)}.task-card .diff.expert{color:var(--purple)}
+.task-card h3{font-size:14px;margin-bottom:4px;font-weight:600}
+.task-card p{font-size:11px;color:var(--muted);line-height:1.4}
 
 /* Code Panels */
-.code-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.code-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media(max-width:768px){.code-grid{grid-template-columns:1fr}}
 .code-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
-.code-panel-header{background:rgba(255,255,255,0.04);padding:8px 16px;border-bottom:1px solid var(--border);
-  display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
+.code-panel-header{background:var(--surface2);padding:8px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--muted)}
 .code-panel-header .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
 .code-panel-header .dot.toml{background:var(--accent)}
 .code-panel-header .dot.rs{background:var(--blue)}
 .code-panel-header .dot.out{background:var(--red)}
-.code-content{padding:16px;font-family:var(--mono);font-size:13px;line-height:1.6;
-  overflow-x:auto;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto;
+.code-content{padding:14px 16px;font-family:var(--mono);font-size:12px;line-height:1.7;
+  overflow-x:auto;white-space:pre-wrap;word-break:break-all;max-height:280px;overflow-y:auto;
   color:#c9d1d9;tab-size:4}
-.code-content.compiler{color:var(--red);max-height:200px}
+.code-content.compiler{color:var(--red);max-height:180px}
 .code-content.compiler.success{color:var(--green)}
-
-/* Compiler panel full width */
 .compiler-panel{grid-column:1/-1}
 
 /* Metrics */
-.metrics-bar{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}
+.metrics-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}
+@media(max-width:600px){.metrics-bar{grid-template-columns:1fr 1fr}}
 .metric{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
-  padding:12px 20px;flex:1;min-width:120px;text-align:center}
-.metric .label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:4px}
-.metric .value{font-size:24px;font-weight:700;font-family:var(--mono)}
-.metric .value.done-yes{color:var(--green)}
-.metric .value.done-no{color:var(--muted)}
-.metric .value.reward-high{color:var(--green)}
-.metric .value.reward-mid{color:var(--yellow)}
-.metric .value.reward-low{color:var(--muted)}
+  padding:14px 16px;text-align:center}
+.metric .label{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:6px;font-weight:600}
+.metric .value{font-size:22px;font-weight:700;font-family:var(--mono)}
+.metric .value.done-yes{color:var(--green)}.metric .value.done-no{color:var(--muted)}
+.metric .value.reward-high{color:var(--green)}.metric .value.reward-mid{color:var(--yellow)}.metric .value.reward-low{color:var(--muted)}
 
 /* Buttons */
-.actions{display:flex;gap:12px;margin:16px 0;flex-wrap:wrap}
-.btn{padding:10px 24px;border-radius:var(--radius);font-size:14px;font-weight:600;
+.actions{display:flex;gap:10px;margin:16px 0;flex-wrap:wrap}
+.btn{padding:10px 22px;border-radius:var(--radius);font-size:13px;font-weight:600;
   cursor:pointer;border:2px solid transparent;transition:all .15s;font-family:inherit}
-.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn:disabled{opacity:.35;cursor:not-allowed}
 .btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
-.btn-primary:hover:not(:disabled){background:var(--accent2);border-color:var(--accent2)}
+.btn-primary:hover:not(:disabled){background:var(--accent2);border-color:var(--accent2);transform:translateY(-1px)}
 .btn-secondary{background:transparent;color:var(--text);border-color:var(--border)}
 .btn-secondary:hover:not(:disabled){border-color:var(--muted)}
-.btn-ghost{background:transparent;color:var(--muted);border:none;padding:10px 16px}
+.btn-ghost{background:transparent;color:var(--muted);border:none;padding:10px 14px}
 .btn-ghost:hover:not(:disabled){color:var(--text)}
 
 /* Step History */
 .history{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:16px 0}
-.history-header{padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;
-  display:flex;align-items:center;justify-content:space-between}
-.history-body{max-height:200px;overflow-y:auto}
-.history-item{padding:8px 16px;border-bottom:1px solid rgba(48,54,61,0.5);font-family:var(--mono);
-  font-size:12px;display:flex;gap:16px;align-items:center}
+.history-header{padding:10px 16px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;
+  display:flex;align-items:center;justify-content:space-between;color:var(--muted)}
+.history-body{max-height:180px;overflow-y:auto}
+.history-item{padding:8px 16px;border-bottom:1px solid rgba(48,54,61,0.4);font-family:var(--mono);
+  font-size:11px;display:flex;gap:14px;align-items:center}
 .history-item:last-child{border-bottom:none}
-.history-item .step-num{color:var(--muted);min-width:60px}
-.history-item .step-action{color:var(--blue);min-width:120px}
-.history-item .step-reward{min-width:80px;font-weight:600}
-.history-item .step-reward.pos{color:var(--green)}
-.history-item .step-reward.zero{color:var(--muted)}
-.history-item .step-errors{color:var(--muted)}
-.history-item .step-status{margin-left:auto}
-.history-empty{padding:24px;text-align:center;color:var(--muted);font-size:13px}
+.history-item .step-num{color:var(--muted);min-width:55px}
+.history-item .step-action{color:var(--blue);min-width:110px}
+.history-item .step-reward{min-width:60px;font-weight:600}
+.history-item .step-reward.pos{color:var(--green)}.history-item .step-reward.zero{color:var(--muted)}
+.history-item .step-errors{color:var(--muted)}.history-item .step-status{margin-left:auto}
+.history-empty{padding:20px;text-align:center;color:var(--muted);font-size:12px}
 
-/* Status indicator */
-.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
-.status-dot.ok{background:var(--green)}.status-dot.err{background:var(--red)}
-.status-dot.warn{background:var(--yellow)}
+/* Reward table */
+.reward-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+.reward-table th{text-align:left;padding:8px 12px;color:var(--muted);font-weight:600;font-size:11px;
+  text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border)}
+.reward-table td{padding:8px 12px;border-bottom:1px solid rgba(48,54,61,0.4)}
+.reward-table tr:last-child td{border-bottom:none}
+.reward-table code{background:rgba(249,115,22,0.1);padding:2px 6px;border-radius:4px;font-size:12px;color:var(--accent)}
+
+/* Features grid */
+.features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:768px){.features-grid{grid-template-columns:1fr}}
+.feature-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px}
+.feature-card h3{font-size:15px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.feature-card p{font-size:13px;color:var(--muted);line-height:1.6}
 
 /* API Reference */
-.api-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.api-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
 .api-item{background:var(--surface);border:1px solid var(--border);border-radius:6px;
-  padding:10px 14px;font-family:var(--mono);font-size:12px;display:flex;align-items:center;gap:8px}
-.api-method{font-weight:700;font-size:11px;padding:2px 6px;border-radius:4px}
+  padding:8px 12px;font-family:var(--mono);font-size:11px;display:flex;align-items:center;gap:8px}
+.api-method{font-weight:700;font-size:10px;padding:2px 6px;border-radius:4px}
 .api-method.get{background:rgba(59,130,246,0.15);color:var(--blue)}
 .api-method.post{background:rgba(249,115,22,0.15);color:var(--accent)}
 
 /* Footer */
-footer{border-top:1px solid var(--border);padding:24px 0;margin-top:48px;text-align:center;color:var(--muted);font-size:13px}
+footer{border-top:1px solid var(--border);padding:32px 0;margin-top:48px}
+.footer-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-inner .left{color:var(--muted);font-size:13px}
+.footer-inner .right{display:flex;gap:20px;font-size:13px}
+.footer-inner .right a{color:var(--muted)}
+
+/* Status indicator */
+.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.status-dot.ok{background:var(--green)}.status-dot.err{background:var(--red)}
 
 /* Animations */
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -145,18 +179,13 @@ footer{border-top:1px solid var(--border);padding:24px 0;margin-top:48px;text-al
 @keyframes successFlash{0%{box-shadow:0 0 0 0 rgba(63,185,80,0.4)}70%{box-shadow:0 0 0 12px rgba(63,185,80,0)}100%{box-shadow:0 0 0 0 rgba(63,185,80,0)}}
 .success-flash{animation:successFlash .6s ease-out}
 
-/* Splash / idle state */
-.idle-message{text-align:center;padding:60px 20px;color:var(--muted)}
-.idle-message .arrow{font-size:32px;margin-bottom:12px;color:var(--border)}
-.idle-message p{font-size:15px}
-
-/* Loading */
+.idle-message{text-align:center;padding:48px 20px;color:var(--muted)}
+.idle-message p{font-size:14px}
 .loading-overlay{position:absolute;inset:0;background:rgba(13,17,23,0.7);display:flex;
   align-items:center;justify-content:center;z-index:10;border-radius:var(--radius)}
 .spinner{width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);
   border-radius:50%;animation:spin .6s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-
 .workspace{position:relative}
 </style>
 </head>
@@ -165,40 +194,78 @@ footer{border-top:1px solid var(--border);padding:24px 0;margin-top:48px;text-al
 <header>
   <div class="container header-inner">
     <div class="logo"><span>&#x1F980;</span> Oxidizer</div>
-    <div class="tagline">Rust Build Fixer RL Environment</div>
+    <div class="header-links">
+      <a href="#how-it-works">How it Works</a>
+      <a href="#challenges">Challenges</a>
+      <a href="#features">Features</a>
+      <a href="#api">API</a>
+      <a href="https://github.com/guglxni/oxidizer">GitHub</a>
+    </div>
   </div>
 </header>
 
 <div class="container">
 
+  <!-- Hero -->
   <div class="hero">
-    <h1>Watch an AI agent fix broken Rust code in real-time. It reads compiler errors, identifies root causes, and applies targeted fixes until <code>cargo check</code> passes.</h1>
+    <div class="hero-title">Fix Broken Rust Builds with AI</div>
+    <div class="hero-sub">An OpenEnv-compatible RL environment where AI agents learn to fix Rust compilation errors by reading <code>cargo check</code> diagnostics and applying targeted edits.</div>
     <div class="hero-badges">
-      <span class="badge live"><span class="status-dot ok"></span>Live Environment</span>
-      <span class="badge">OpenEnv Compatible</span>
+      <span class="badge live"><span class="status-dot ok"></span>Live</span>
+      <span class="badge">OpenEnv 1.0</span>
       <span class="badge">5 Challenges</span>
-      <span class="badge">Real Compiler</span>
-      <span class="badge">Partial Rewards</span>
+      <span class="badge">Real Rust Compiler</span>
+      <span class="badge">Partial Reward Shaping</span>
+      <span class="badge">MCP Tools</span>
     </div>
 
-    <div class="repo-input-wrap">
-      <input type="text" id="repoUrlInput" placeholder="https://github.com/owner/rust-project" spellcheck="false">
-      <button id="btnAnalyze" onclick="analyzeRepo()">Analyze Repo</button>
-    </div>
-    <div class="analyze-status" id="analyzeStatus"></div>
-    <div style="text-align:center;margin-top:8px;font-size:12px;color:var(--muted)">
-      Try:
-      <a href="#" onclick="document.getElementById('repoUrlInput').value='https://github.com/Gankra/klutz';analyzeRepo();return false" style="color:var(--red)">klutz</a> (syntax error) &middot;
-      <a href="#" onclick="document.getElementById('repoUrlInput').value='https://github.com/Elrendio/invalid_compilation_error';analyzeRepo();return false" style="color:var(--red)">format-err</a> (3 errors) &middot;
-      <a href="#" onclick="document.getElementById('repoUrlInput').value='https://github.com/nickel-org/nickel.rs';analyzeRepo();return false" style="color:var(--green)">nickel.rs</a> (builds OK)
+    <div class="repo-box">
+      <div class="repo-input-wrap">
+        <input type="text" id="repoUrlInput" placeholder="Paste a GitHub Rust repo URL to analyze..." spellcheck="false">
+        <button id="btnAnalyze" onclick="analyzeRepo()">Analyze</button>
+      </div>
+      <div class="analyze-status" id="analyzeStatus"></div>
+      <div class="try-links">
+        Try:
+        <a onclick="document.getElementById('repoUrlInput').value='https://github.com/Gankra/klutz';analyzeRepo();return false" style="color:var(--red)">klutz</a> (syntax error) &middot;
+        <a onclick="document.getElementById('repoUrlInput').value='https://github.com/Elrendio/invalid_compilation_error';analyzeRepo();return false" style="color:var(--red)">format-err</a> (3 errors) &middot;
+        <a onclick="document.getElementById('repoUrlInput').value='https://github.com/vporton/get_transaction_count-thread-test-rust';analyzeRepo();return false" style="color:var(--red)">borrow-err</a> (lifetime) &middot;
+        <a onclick="document.getElementById('repoUrlInput').value='https://github.com/nickel-org/nickel.rs';analyzeRepo();return false" style="color:var(--green)">nickel.rs</a> (builds OK)
+      </div>
     </div>
   </div>
 
-  <div class="or-divider">or try a built-in challenge</div>
+  <!-- How it Works -->
+  <div class="how-it-works" id="how-it-works">
+    <div class="section-title">How It Works</div>
+    <div class="hiw-grid">
+      <div class="hiw-card">
+        <div class="hiw-num">1</div>
+        <h3>Broken Code</h3>
+        <p>A Rust project with compilation errors is loaded &mdash; missing dependencies, wrong features, syntax issues.</p>
+      </div>
+      <div class="hiw-card">
+        <div class="hiw-num">2</div>
+        <h3>Read Diagnostics</h3>
+        <p>The agent sees <code>cargo check</code> output with error codes like E0432, E0277, helping it reason about the fix.</p>
+      </div>
+      <div class="hiw-card">
+        <div class="hiw-num">3</div>
+        <h3>Apply Fix</h3>
+        <p>The agent edits Cargo.toml or src/main.rs &mdash; one file per step, or both at once with <code>both_files</code>.</p>
+      </div>
+      <div class="hiw-card">
+        <div class="hiw-num">4</div>
+        <h3>Earn Reward</h3>
+        <p>Partial reward for reducing errors, full reward for a clean build. Regression is penalized.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="or-divider" id="challenges">Try a Built-in Challenge</div>
 
   <!-- Task Selector -->
   <div class="section">
-    <div class="section-title">Select Challenge</div>
     <div class="tasks-grid" id="tasksGrid">
       <div class="task-card" data-task="0" onclick="selectTask(0)">
         <div class="diff easy">Easy</div>
@@ -230,496 +297,251 @@ footer{border-top:1px solid var(--border);padding:24px 0;margin-top:48px;text-al
 
   <!-- Workspace -->
   <div class="workspace" id="workspace">
-    <div id="loadingOverlay" class="loading-overlay" style="display:none">
-      <div class="spinner"></div>
-    </div>
-
-    <!-- Idle state -->
-    <div id="idleState" class="idle-message">
-      <div class="arrow">&#8593;</div>
-      <p>Select a challenge above to begin</p>
-    </div>
-
-    <!-- Active state -->
+    <div id="loadingOverlay" class="loading-overlay" style="display:none"><div class="spinner"></div></div>
+    <div id="idleState" class="idle-message"><p>Select a challenge or paste a repo URL above to begin</p></div>
     <div id="activeState" style="display:none">
-
-      <!-- Metrics -->
       <div class="metrics-bar" id="metricsBar">
-        <div class="metric">
-          <div class="label">Step</div>
-          <div class="value" id="metricStep">0 / 10</div>
-        </div>
-        <div class="metric">
-          <div class="label">Errors</div>
-          <div class="value" id="metricErrors" style="color:var(--red)">0</div>
-        </div>
-        <div class="metric">
-          <div class="label">Reward</div>
-          <div class="value reward-low" id="metricReward">0.00</div>
-        </div>
-        <div class="metric">
-          <div class="label">Status</div>
-          <div class="value done-no" id="metricDone">In Progress</div>
-        </div>
+        <div class="metric"><div class="label">Step</div><div class="value" id="metricStep">0 / 10</div></div>
+        <div class="metric"><div class="label">Errors</div><div class="value" id="metricErrors" style="color:var(--red)">0</div></div>
+        <div class="metric"><div class="label">Reward</div><div class="value reward-low" id="metricReward">0.01</div></div>
+        <div class="metric"><div class="label">Status</div><div class="value done-no" id="metricDone">In Progress</div></div>
       </div>
-
-      <!-- Actions -->
       <div class="actions">
         <button class="btn btn-primary" id="btnAutoFix" onclick="runAutoFix()" disabled>&#9654; Auto-Fix Demo</button>
-        <button class="btn btn-secondary" id="btnStep" onclick="runSingleStep()" disabled>&#9193; Single Step</button>
-        <button class="btn btn-secondary" id="btnDryRun" onclick="runDryRun()" disabled>&#128269; Dry Run</button>
+        <button class="btn btn-secondary" id="btnStep" onclick="runSingleStep()" disabled>Single Step</button>
+        <button class="btn btn-secondary" id="btnDryRun" onclick="runDryRun()" disabled>Dry Run</button>
         <button class="btn btn-ghost" id="btnReset" onclick="resetCurrentTask()">&#8635; Reset</button>
       </div>
-
-      <!-- Code panels -->
       <div class="code-grid">
-        <div class="code-panel">
-          <div class="code-panel-header"><span class="dot toml"></span> Cargo.toml</div>
-          <div class="code-content" id="cargoToml"></div>
-        </div>
-        <div class="code-panel">
-          <div class="code-panel-header"><span class="dot rs"></span> src/main.rs</div>
-          <div class="code-content" id="mainRs"></div>
-        </div>
-        <div class="code-panel compiler-panel">
-          <div class="code-panel-header"><span class="dot out"></span> Compiler Output</div>
-          <div class="code-content compiler" id="compilerOutput"></div>
-        </div>
+        <div class="code-panel"><div class="code-panel-header"><span class="dot toml"></span>Cargo.toml</div><div class="code-content" id="cargoToml"></div></div>
+        <div class="code-panel"><div class="code-panel-header"><span class="dot rs"></span>src/main.rs</div><div class="code-content" id="mainRs"></div></div>
+        <div class="code-panel compiler-panel"><div class="code-panel-header"><span class="dot out"></span>Compiler Output</div><div class="code-content compiler" id="compilerOutput"></div></div>
       </div>
-
-      <!-- Step History -->
       <div class="history">
-        <div class="history-header">
-          <span>Step History</span>
-          <span id="historyCount" style="color:var(--muted);font-weight:400;font-size:12px"></span>
-        </div>
-        <div class="history-body" id="historyBody">
-          <div class="history-empty">No steps yet. Click Auto-Fix or Single Step to begin.</div>
-        </div>
+        <div class="history-header"><span>Step History</span><span id="historyCount" style="font-weight:400;font-size:11px"></span></div>
+        <div class="history-body" id="historyBody"><div class="history-empty">No steps yet.</div></div>
       </div>
+    </div>
+  </div>
 
+  <!-- Features -->
+  <div class="section" id="features" style="padding-top:40px">
+    <div class="section-title">Why Oxidizer</div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <h3>&#x1F3AF; Real Compiler, Not Simulated</h3>
+        <p>Every step runs the actual Rust compiler via <code>cargo check</code>. The agent sees the same error codes and diagnostics a human developer would see. No mocks, no approximations.</p>
+      </div>
+      <div class="feature-card">
+        <h3>&#x1F4C8; Partial Reward Shaping</h3>
+        <p>Unlike binary pass/fail environments, Oxidizer rewards partial progress. Reducing errors from 5 to 2 earns reward proportional to the improvement &mdash; providing gradient signal for RL training.</p>
+      </div>
+      <div class="feature-card">
+        <h3>&#x1F6E1; Security Hardened</h3>
+        <p>OWASP Top 10:2025 compliant. Optional API key auth, Pydantic input validation, opaque error IDs, compiler output sanitization for LLM prompts (ASI04 defense).</p>
+      </div>
+      <div class="feature-card">
+        <h3>&#x1F527; Rich Action Space</h3>
+        <p>Three action types: <b>single-file edit</b>, <b>both_files</b> for atomic multi-file repair, and <b>dry_run</b> for planning steps that re-read diagnostics without committing changes.</p>
+      </div>
+      <div class="feature-card">
+        <h3>&#x1F4CA; Structured Info Dict</h3>
+        <p>Each step returns error counts, warning counts, regression flags, and progress tracking &mdash; giving RL trainers richer signal beyond just the scalar reward.</p>
+      </div>
+      <div class="feature-card">
+        <h3>&#x1F916; MCP Tool Server</h3>
+        <p>Full JSON-RPC 2.0 endpoint at <code>/mcp</code> with tools: <code>get_compiler_errors</code>, <code>get_task_state</code>, <code>list_tasks</code>. Agents connecting via MCP get a proper tool interface.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reward Table -->
+  <div class="section">
+    <div class="section-title">Reward Ladder</div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+      <table class="reward-table">
+        <thead><tr><th>Condition</th><th>Score</th><th>Done</th></tr></thead>
+        <tbody>
+          <tr><td>Clean build, no warnings</td><td><code>0.99</code></td><td style="color:var(--green)">true</td></tr>
+          <tr><td>Build passes with N warnings</td><td><code>0.91 &ndash; 0.98</code></td><td style="color:var(--green)">true</td></tr>
+          <tr><td>Errors reduced from initial count</td><td><code>0.09 &ndash; 0.90</code></td><td style="color:var(--muted)">false</td></tr>
+          <tr><td>No change (stalled)</td><td><code>0.05</code></td><td style="color:var(--muted)">false</td></tr>
+          <tr><td>Regression (errors increased)</td><td><code>0.01</code></td><td style="color:var(--muted)">false</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
   <!-- API Reference -->
-  <div class="section" style="margin-top:32px">
+  <div class="section" id="api">
     <div class="section-title">API Endpoints</div>
     <div class="api-grid">
-      <div class="api-item"><span class="api-method get">GET</span> /health</div>
-      <div class="api-item"><span class="api-method get">GET</span> /metadata</div>
-      <div class="api-item"><span class="api-method get">GET</span> /schema</div>
-      <div class="api-item"><span class="api-method get">GET</span> /tasks</div>
-      <div class="api-item"><span class="api-method post">POST</span> /reset</div>
-      <div class="api-item"><span class="api-method post">POST</span> /step</div>
-      <div class="api-item"><span class="api-method get">GET</span> /state</div>
-      <div class="api-item"><span class="api-method post">POST</span> /mcp</div>
-      <div class="api-item"><span class="api-method post">POST</span> /analyze</div>
-      <div class="api-item"><span class="api-method get">GET</span> /openapi.json</div>
+      <div class="api-item"><span class="api-method get">GET</span>/health</div>
+      <div class="api-item"><span class="api-method get">GET</span>/metadata</div>
+      <div class="api-item"><span class="api-method get">GET</span>/schema</div>
+      <div class="api-item"><span class="api-method get">GET</span>/tasks</div>
+      <div class="api-item"><span class="api-method post">POST</span>/reset</div>
+      <div class="api-item"><span class="api-method post">POST</span>/step</div>
+      <div class="api-item"><span class="api-method get">GET</span>/state</div>
+      <div class="api-item"><span class="api-method post">POST</span>/mcp</div>
+      <div class="api-item"><span class="api-method post">POST</span>/analyze</div>
+      <div class="api-item"><span class="api-method get">GET</span>/logs</div>
+      <div class="api-item"><span class="api-method get">GET</span>/openapi.json</div>
     </div>
   </div>
 
 </div>
 
 <footer>
-  <div class="container">
-    Oxidizer &mdash; OpenEnv RL Environment &middot; Built for the Open Hackathon &middot;
-    <a href="https://github.com/aaryanguglani">GitHub</a>
+  <div class="container footer-inner">
+    <div class="left">Oxidizer &mdash; OpenEnv RL Environment &middot; Meta PyTorch Hackathon x Scaler SST</div>
+    <div class="right">
+      <a href="https://github.com/guglxni/oxidizer">Source Code</a>
+      <a href="/openapi.json">OpenAPI Spec</a>
+      <a href="/logs">Audit Logs</a>
+    </div>
   </div>
 </footer>
 
 <script>
-const API = '';  // same origin
-let currentTaskId = null;
-let isDone = false;
-let stepCount = 0;
-let autoFixRunning = false;
-let analyzeMode = false;
+const API='';let currentTaskId=null;let isDone=false;let stepCount=0;let autoFixRunning=false;let analyzeMode=false;
 
-// ─── Analyze GitHub repo ────────────────────────────────────────────
-
-async function analyzeRepo() {
-  const input = document.getElementById('repoUrlInput');
-  const statusEl = document.getElementById('analyzeStatus');
-  const btn = document.getElementById('btnAnalyze');
-  let url = input.value.trim();
-
-  if (!url) { statusEl.textContent = 'Please enter a GitHub repository URL'; return; }
-
-  // Auto-prepend https if missing
-  if (url.match(/^github\.com\//)) url = 'https://' + url;
-  // Strip trailing slashes, .git suffix
-  url = url.replace(/\/+$/, '').replace(/\.git$/, '');
-
-  if (!url.match(/^https?:\/\/(www\.)?github\.com\/.+\/.+/)) {
-    statusEl.textContent = 'Please enter a valid GitHub URL (e.g. https://github.com/owner/repo)';
-    return;
-  }
-
-  // Switch to analyze mode
-  analyzeMode = true;
-  currentTaskId = null;
-  document.querySelectorAll('.task-card').forEach(c => c.classList.remove('active'));
-
-  statusEl.innerHTML = '<span class="pulsing">Cloning and analyzing... this may take up to 2 minutes</span>';
-  btn.disabled = true;
-
-  document.getElementById('idleState').style.display = 'none';
-  document.getElementById('activeState').style.display = 'block';
-  showLoading(true);
-
-  // Hide demo-only buttons in analyze mode
-  document.getElementById('btnAutoFix').style.display = 'none';
-  document.getElementById('btnStep').style.display = 'none';
-  document.getElementById('btnDryRun').style.display = 'none';
-  document.getElementById('btnReset').style.display = 'none';
-
-  document.getElementById('historyBody').innerHTML = '<div class="history-empty">Analyzing external repository...</div>';
-  document.getElementById('historyCount').textContent = '';
-
-  try {
-    const data = await apiPost('/analyze', { repo_url: url });
-
-    document.getElementById('cargoToml').textContent = data.cargo_toml || '(not found)';
-    document.getElementById('mainRs').textContent = data.main_rs || '(not found)';
-
-    const compEl = document.getElementById('compilerOutput');
-    compEl.textContent = data.compiler_output || '(no output)';
-
-    if (data.builds) {
-      compEl.classList.add('success');
-      compEl.classList.remove('compiler');
-      statusEl.innerHTML = '<span style="color:var(--green)">This project builds successfully.</span>';
-    } else {
-      compEl.classList.remove('success');
-      compEl.classList.add('compiler');
-      statusEl.innerHTML = '<span style="color:var(--red)">' + data.error_count + ' error(s) found.</span> ' +
-        '<span style="color:var(--muted)">Files: ' + data.files_found.join(', ') + '</span>';
+async function analyzeRepo(){
+  const input=document.getElementById('repoUrlInput');const statusEl=document.getElementById('analyzeStatus');
+  const btn=document.getElementById('btnAnalyze');let url=input.value.trim();
+  if(!url){statusEl.textContent='Please enter a GitHub repository URL';return}
+  if(url.match(/^github\.com\//))url='https://'+url;
+  url=url.replace(/\/+$/,'').replace(/\.git$/,'');
+  if(!url.match(/^https?:\/\/(www\.)?github\.com\/.+\/.+/)){statusEl.textContent='Enter a valid GitHub URL';return}
+  analyzeMode=true;currentTaskId=null;
+  document.querySelectorAll('.task-card').forEach(c=>c.classList.remove('active'));
+  statusEl.innerHTML='<span class="pulsing">Cloning and running cargo check... this may take up to 2 minutes</span>';
+  btn.disabled=true;
+  document.getElementById('idleState').style.display='none';
+  document.getElementById('activeState').style.display='block';showLoading(true);
+  document.getElementById('btnAutoFix').style.display='none';document.getElementById('btnStep').style.display='none';
+  document.getElementById('btnDryRun').style.display='none';document.getElementById('btnReset').style.display='none';
+  document.getElementById('historyBody').innerHTML='<div class="history-empty">Analyzing...</div>';
+  document.getElementById('historyCount').textContent='';
+  try{
+    const data=await apiPost('/analyze',{repo_url:url});
+    document.getElementById('cargoToml').textContent=data.cargo_toml||'(not found)';
+    document.getElementById('mainRs').textContent=data.main_rs||'(not found)';
+    const compEl=document.getElementById('compilerOutput');compEl.textContent=data.compiler_output||'(no output)';
+    if(data.builds){compEl.classList.add('success');compEl.classList.remove('compiler');
+      statusEl.innerHTML='<span style="color:var(--green)">This project builds successfully.</span>';
+    }else{compEl.classList.remove('success');compEl.classList.add('compiler');
+      statusEl.innerHTML='<span style="color:var(--red)">'+data.error_count+' error(s) found.</span> <span style="color:var(--muted)">Files: '+data.files_found.join(', ')+'</span>';
     }
-
-    document.getElementById('metricStep').textContent = '-';
-    document.getElementById('metricErrors').textContent = data.error_count;
-    document.getElementById('metricErrors').style.color = data.error_count === 0 ? 'var(--green)' : 'var(--red)';
-    document.getElementById('metricReward').textContent = data.builds ? '0.99' : '0.01';
-    document.getElementById('metricReward').className = 'value ' + (data.builds ? 'reward-high' : 'reward-low');
-    const doneEl = document.getElementById('metricDone');
-    doneEl.textContent = data.builds ? 'Builds' : data.error_count + ' Errors';
-    doneEl.className = 'value ' + (data.builds ? 'done-yes' : 'done-no');
-    doneEl.style.fontSize = data.builds ? '20px' : '16px';
-
-    // Show reset button so user can go back to challenges
-    document.getElementById('btnReset').style.display = '';
-    document.getElementById('btnReset').textContent = '< Back to Challenges';
-    document.getElementById('btnReset').onclick = function() {
-      analyzeMode = false;
-      document.getElementById('btnAutoFix').style.display = '';
-      document.getElementById('btnStep').style.display = '';
-      document.getElementById('btnDryRun').style.display = '';
-      document.getElementById('btnReset').textContent = '\u21BB Reset';
-      document.getElementById('btnReset').onclick = resetCurrentTask;
-      document.getElementById('activeState').style.display = 'none';
-      document.getElementById('idleState').style.display = '';
-      statusEl.textContent = '';
-    };
-
-    document.getElementById('historyBody').innerHTML =
-      '<div class="history-item fade-in">' +
-      '<span class="step-num">Clone</span>' +
-      '<span class="step-action">' + esc(url.replace('https://github.com/', '')) + '</span>' +
-      '<span class="step-reward ' + (data.builds ? 'pos' : 'zero') + '">' + (data.builds ? 'pass' : 'fail') + '</span>' +
-      '<span class="step-errors">' + data.error_count + ' error(s), ' + data.warning_count + ' warning(s)</span>' +
-      '</div>';
-
-  } catch (e) {
-    statusEl.innerHTML = '<span style="color:var(--red)">Error: ' + esc(e.message) + '</span>';
-    document.getElementById('compilerOutput').textContent = 'Analysis failed: ' + e.message;
-  }
-
-  showLoading(false);
-  btn.disabled = false;
+    document.getElementById('metricStep').textContent='-';
+    document.getElementById('metricErrors').textContent=data.error_count;
+    document.getElementById('metricErrors').style.color=data.error_count===0?'var(--green)':'var(--red)';
+    document.getElementById('metricReward').textContent=data.builds?'0.99':'0.01';
+    document.getElementById('metricReward').className='value '+(data.builds?'reward-high':'reward-low');
+    const doneEl=document.getElementById('metricDone');
+    doneEl.textContent=data.builds?'Builds':data.error_count+' Errors';
+    doneEl.className='value '+(data.builds?'done-yes':'done-no');doneEl.style.fontSize=data.builds?'20px':'16px';
+    document.getElementById('btnReset').style.display='';document.getElementById('btnReset').textContent='< Back';
+    document.getElementById('btnReset').onclick=function(){analyzeMode=false;
+      document.getElementById('btnAutoFix').style.display='';document.getElementById('btnStep').style.display='';
+      document.getElementById('btnDryRun').style.display='';document.getElementById('btnReset').textContent='\u21BB Reset';
+      document.getElementById('btnReset').onclick=resetCurrentTask;
+      document.getElementById('activeState').style.display='none';document.getElementById('idleState').style.display='';statusEl.textContent='';};
+    document.getElementById('historyBody').innerHTML='<div class="history-item fade-in"><span class="step-num">Clone</span><span class="step-action">'+esc(url.replace('https://github.com/',''))+'</span><span class="step-reward '+(data.builds?'pos':'zero')+'">'+(data.builds?'pass':'fail')+'</span><span class="step-errors">'+data.error_count+' error(s), '+data.warning_count+' warning(s)</span></div>';
+  }catch(e){statusEl.innerHTML='<span style="color:var(--red)">Error: '+esc(e.message)+'</span>';
+    document.getElementById('compilerOutput').textContent='Analysis failed: '+e.message;}
+  showLoading(false);btn.disabled=false;
 }
+document.addEventListener('DOMContentLoaded',function(){document.getElementById('repoUrlInput').addEventListener('keydown',function(e){if(e.key==='Enter')analyzeRepo()})});
 
-// Allow Enter key to trigger analyze
-document.addEventListener('DOMContentLoaded', function() {
-  document.getElementById('repoUrlInput').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') analyzeRepo();
-  });
-});
-
-// ─── Pre-computed fixes for demo (no LLM keys needed) ───────────────
-
-const FIXES = {
-  0: [  // Easy: missing rand
-    { file_to_edit: "Cargo.toml", new_content: `[package]\nname = "broken-project"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\nrand = "0.8"\n` }
-  ],
-  1: [  // Medium: serde feature
-    { file_to_edit: "Cargo.toml", new_content: `[package]\nname = "broken-project"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\nserde = { version = "1.0", features = ["derive"] }\nserde_json = "1.0"\n` }
-  ],
-  2: [  // Hard: syntax + reqwest (both_files)
-    { file_to_edit: "both_files",
-      cargo_toml_content: `[package]\nname = "broken-project"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\ntokio = { version = "1.0", features = ["full"] }\nreqwest = "0.11"\n`,
-      main_rs_content: `#[tokio::main]\nasync fn main() {\n    let url = "https://api.github.com/users/rust-lang";\n    println!("Fetching: {}", url);\n\n    let response = reqwest::get(url).await.unwrap();\n    println!("Status: {}", response.status());\n}\n`
-    }
-  ],
-  3: [  // Multi-dep: chrono + regex
-    { file_to_edit: "Cargo.toml", new_content: `[package]\nname = "broken-project"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\nchrono = "0.4"\nregex = "1.0"\n` }
-  ],
-  4: [  // Expert: cross-file multi-error (two steps)
-    { file_to_edit: "Cargo.toml", new_content: `[package]\nname = "broken-project"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\nserde = { version = "1.0", features = ["derive"] }\nserde_json = "1.0"\nrand = "0.8"\n` },
-    { file_to_edit: "src/main.rs", new_content: `use serde::{Deserialize, Serialize};\nuse rand::Rng;\n\n#[derive(Serialize, Deserialize, Debug)]\nstruct Config {\n    name: String,\n    seed: u32,\n}\n\nfn main() {\n    let mut rng = rand::thread_rng();\n    let cfg = Config { name: "test".to_string(), seed: rng.gen_range(1..100) };\n    let json = serde_json::to_string(&cfg).unwrap();\n    println!("Config: {}", json);\n}\n` }
-  ]
+const FIXES={
+  0:[{file_to_edit:"Cargo.toml",new_content:`[package]\nname = "broken-project"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\nrand = "0.8"\n`}],
+  1:[{file_to_edit:"Cargo.toml",new_content:`[package]\nname = "broken-project"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\nserde = { version = "1.0", features = ["derive"] }\nserde_json = "1.0"\n`}],
+  2:[{file_to_edit:"both_files",cargo_toml_content:`[package]\nname = "broken-project"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\ntokio = { version = "1.0", features = ["full"] }\nreqwest = "0.11"\n`,main_rs_content:`#[tokio::main]\nasync fn main() {\n    let url = "https://api.github.com/users/rust-lang";\n    println!("Fetching: {}", url);\n\n    let response = reqwest::get(url).await.unwrap();\n    println!("Status: {}", response.status());\n}\n`}],
+  3:[{file_to_edit:"Cargo.toml",new_content:`[package]\nname = "broken-project"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\nchrono = "0.4"\nregex = "1.0"\n`}],
+  4:[{file_to_edit:"Cargo.toml",new_content:`[package]\nname = "broken-project"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\nserde = { version = "1.0", features = ["derive"] }\nserde_json = "1.0"\nrand = "0.8"\n`},{file_to_edit:"src/main.rs",new_content:`use serde::{Deserialize, Serialize};\nuse rand::Rng;\n\n#[derive(Serialize, Deserialize, Debug)]\nstruct Config {\n    name: String,\n    seed: u32,\n}\n\nfn main() {\n    let mut rng = rand::thread_rng();\n    let cfg = Config { name: "test".to_string(), seed: rng.gen_range(1..100) };\n    let json = serde_json::to_string(&cfg).unwrap();\n    println!("Config: {}", json);\n}\n`}]
 };
+let fixIndex=0;
 
-let fixIndex = 0;
+async function apiPost(p,b){const r=await fetch(API+p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});if(!r.ok)throw new Error(`${r.status} ${r.statusText}`);return r.json()}
+async function apiGet(p){const r=await fetch(API+p);if(!r.ok)throw new Error(`${r.status} ${r.statusText}`);return r.json()}
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function showLoading(on){document.getElementById('loadingOverlay').style.display=on?'flex':'none'}
 
-// ─── API helpers ────────────────────────────────────────────────────
-
-async function apiPost(path, body) {
-  const res = await fetch(API + path, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  return res.json();
+function updateDisplay(obs,reward,info){
+  document.getElementById('cargoToml').textContent=obs.cargo_toml_content||'';
+  document.getElementById('mainRs').textContent=obs.main_rs_content||'';
+  const compEl=document.getElementById('compilerOutput');compEl.textContent=obs.compiler_output||'';
+  const done=reward?reward.is_done:false;isDone=done;
+  if(done){compEl.classList.add('success');compEl.classList.remove('compiler')}else{compEl.classList.remove('success');compEl.classList.add('compiler')}
+  const step=info?info.step_count:0;stepCount=step;
+  document.getElementById('metricStep').textContent=`${step} / 10`;
+  const errors=info?info.error_count:0;const errEl=document.getElementById('metricErrors');
+  errEl.textContent=errors;errEl.style.color=errors===0?'var(--green)':'var(--red)';
+  const score=reward?reward.score:0;const rewEl=document.getElementById('metricReward');
+  rewEl.textContent=score.toFixed(2);rewEl.className='value '+(score>=0.9?'reward-high':score>0.05?'reward-mid':'reward-low');
+  const doneEl=document.getElementById('metricDone');
+  if(done){doneEl.textContent='Passed';doneEl.className='value done-yes';doneEl.style.fontSize='20px'}
+  else{doneEl.textContent='In Progress';doneEl.className='value done-no';doneEl.style.fontSize='16px'}
+  document.getElementById('btnAutoFix').disabled=done;document.getElementById('btnStep').disabled=done;document.getElementById('btnDryRun').disabled=done;
 }
 
-async function apiGet(path) {
-  const res = await fetch(API + path);
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  return res.json();
+function addHistoryItem(step,action,reward,errors,done){
+  const body=document.getElementById('historyBody');if(body.querySelector('.history-empty'))body.innerHTML='';
+  const item=document.createElement('div');item.className='history-item fade-in';
+  const sc=reward>=0.9?'pos':'zero';const si=done?'<span style="color:var(--green)">&#10004;</span>':'<span style="color:var(--muted)">&#8226;</span>';
+  const al=action==='both_files'?'both files':action==='dry_run'?'dry run':action;
+  item.innerHTML=`<span class="step-num">Step ${step}</span><span class="step-action">${esc(al)}</span><span class="step-reward ${sc}">${reward.toFixed(2)}</span><span class="step-errors">${errors} error${errors!==1?'s':''}</span><span class="step-status">${si}</span>`;
+  body.appendChild(item);body.scrollTop=body.scrollHeight;
+  document.getElementById('historyCount').textContent=`${step} step${step!==1?'s':''}`;
 }
 
-// ─── UI helpers ─────────────────────────────────────────────────────
-
-function esc(s) {
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
-}
-
-function showLoading(on) {
-  document.getElementById('loadingOverlay').style.display = on ? 'flex' : 'none';
-}
-
-function updateDisplay(obs, reward, info) {
-  document.getElementById('cargoToml').textContent = obs.cargo_toml_content || '';
-  document.getElementById('mainRs').textContent = obs.main_rs_content || '';
-
-  const compEl = document.getElementById('compilerOutput');
-  compEl.textContent = obs.compiler_output || '';
-
-  const done = reward ? reward.is_done : false;
-  isDone = done;
-
-  if (done) {
-    compEl.classList.add('success');
-    compEl.classList.remove('compiler');
-  } else {
-    compEl.classList.remove('success');
-    compEl.classList.add('compiler');
-  }
-
-  const step = info ? info.step_count : 0;
-  stepCount = step;
-  document.getElementById('metricStep').textContent = `${step} / 10`;
-
-  const errors = info ? info.error_count : 0;
-  const errEl = document.getElementById('metricErrors');
-  errEl.textContent = errors;
-  errEl.style.color = errors === 0 ? 'var(--green)' : 'var(--red)';
-
-  const score = reward ? reward.score : 0;
-  const rewEl = document.getElementById('metricReward');
-  rewEl.textContent = score.toFixed(2);
-  rewEl.className = 'value ' + (score >= 0.9 ? 'reward-high' : score > 0 ? 'reward-mid' : 'reward-low');
-
-  const doneEl = document.getElementById('metricDone');
-  if (done) {
-    doneEl.textContent = 'Passed';
-    doneEl.className = 'value done-yes';
-    doneEl.style.fontSize = '20px';
-  } else {
-    doneEl.textContent = 'In Progress';
-    doneEl.className = 'value done-no';
-    doneEl.style.fontSize = '16px';
-  }
-
-  // Button states
-  document.getElementById('btnAutoFix').disabled = done;
-  document.getElementById('btnStep').disabled = done;
-  document.getElementById('btnDryRun').disabled = done;
-}
-
-function addHistoryItem(step, action, reward, errors, done) {
-  const body = document.getElementById('historyBody');
-  if (body.querySelector('.history-empty')) body.innerHTML = '';
-
-  const item = document.createElement('div');
-  item.className = 'history-item fade-in';
-
-  const scoreClass = reward >= 0.9 ? 'pos' : 'zero';
-  const statusIcon = done ? '<span style="color:var(--green)">&#10004;</span>'
-                          : '<span style="color:var(--muted)">&#8226;</span>';
-  const actionLabel = action === 'both_files' ? 'both files' :
-                      action === 'dry_run' ? 'dry run' :
-                      action;
-
-  item.innerHTML = `
-    <span class="step-num">Step ${step}</span>
-    <span class="step-action">${esc(actionLabel)}</span>
-    <span class="step-reward ${scoreClass}">${reward.toFixed(2)}</span>
-    <span class="step-errors">${errors} error${errors !== 1 ? 's' : ''}</span>
-    <span class="step-status">${statusIcon}</span>
-  `;
-  body.appendChild(item);
-  body.scrollTop = body.scrollHeight;
-  document.getElementById('historyCount').textContent = `${step} step${step !== 1 ? 's' : ''}`;
-}
-
-// ─── Core actions ───────────────────────────────────────────────────
-
-async function selectTask(taskId) {
-  // Highlight card
-  document.querySelectorAll('.task-card').forEach(c => c.classList.remove('active'));
+async function selectTask(taskId){
+  document.querySelectorAll('.task-card').forEach(c=>c.classList.remove('active'));
   document.querySelector(`.task-card[data-task="${taskId}"]`).classList.add('active');
-
-  currentTaskId = taskId;
-  fixIndex = 0;
-  isDone = false;
-
-  document.getElementById('idleState').style.display = 'none';
-  document.getElementById('activeState').style.display = 'block';
-  document.getElementById('historyBody').innerHTML = '<div class="history-empty">No steps yet. Click Auto-Fix or Single Step to begin.</div>';
-  document.getElementById('historyCount').textContent = '';
-
-  showLoading(true);
-  try {
-    const obs = await apiPost('/reset', { task_id: taskId });
-    // Get state for initial info
-    const state = await apiGet('/state');
-    updateDisplay(obs, state.reward, state.info);
-    document.getElementById('btnAutoFix').disabled = false;
-    document.getElementById('btnStep').disabled = false;
-    document.getElementById('btnDryRun').disabled = false;
-  } catch (e) {
-    console.error('Reset failed:', e);
-    document.getElementById('compilerOutput').textContent = 'Error: ' + e.message;
-  }
-  showLoading(false);
+  currentTaskId=taskId;fixIndex=0;isDone=false;
+  document.getElementById('idleState').style.display='none';document.getElementById('activeState').style.display='block';
+  document.getElementById('historyBody').innerHTML='<div class="history-empty">No steps yet.</div>';
+  document.getElementById('historyCount').textContent='';showLoading(true);
+  try{const obs=await apiPost('/reset',{task_id:taskId});const state=await apiGet('/state');
+    updateDisplay(obs,state.reward,state.info);
+    document.getElementById('btnAutoFix').disabled=false;document.getElementById('btnStep').disabled=false;document.getElementById('btnDryRun').disabled=false;
+  }catch(e){document.getElementById('compilerOutput').textContent='Error: '+e.message}showLoading(false);
 }
 
-async function runSingleStep() {
-  if (isDone || currentTaskId === null) return;
-
-  const fixes = FIXES[currentTaskId];
-  if (!fixes || fixIndex >= fixes.length) return;
-
-  const fix = fixes[fixIndex];
-  fixIndex++;
-
-  showLoading(true);
-  try {
-    const data = await apiPost('/step', { action: fix });
-    updateDisplay(data.observation, data.reward, data.info);
-    addHistoryItem(
-      data.info.step_count,
-      fix.file_to_edit,
-      data.reward.score,
-      data.info.error_count,
-      data.reward.is_done
-    );
-
-    if (data.reward.is_done) {
-      document.getElementById('workspace').classList.add('success-flash');
-      setTimeout(() => document.getElementById('workspace').classList.remove('success-flash'), 600);
-    }
-  } catch (e) {
-    console.error('Step failed:', e);
-  }
-  showLoading(false);
+async function runSingleStep(){
+  if(isDone||currentTaskId===null)return;const fixes=FIXES[currentTaskId];if(!fixes||fixIndex>=fixes.length)return;
+  const fix=fixes[fixIndex];fixIndex++;showLoading(true);
+  try{const data=await apiPost('/step',{action:fix});updateDisplay(data.observation,data.reward,data.info);
+    addHistoryItem(data.info.step_count,fix.file_to_edit,data.reward.score,data.info.error_count,data.reward.is_done);
+    if(data.reward.is_done){document.getElementById('workspace').classList.add('success-flash');setTimeout(()=>document.getElementById('workspace').classList.remove('success-flash'),600)}
+  }catch(e){console.error('Step failed:',e)}showLoading(false);
 }
 
-async function runDryRun() {
-  if (isDone || currentTaskId === null) return;
-
-  showLoading(true);
-  try {
-    const data = await apiPost('/step', { action: { file_to_edit: "dry_run" } });
-    updateDisplay(data.observation, data.reward, data.info);
-    addHistoryItem(
-      data.info.step_count,
-      'dry_run',
-      data.reward.score,
-      data.info.error_count,
-      false
-    );
-  } catch (e) {
-    console.error('Dry run failed:', e);
-  }
-  showLoading(false);
+async function runDryRun(){
+  if(isDone||currentTaskId===null)return;showLoading(true);
+  try{const data=await apiPost('/step',{action:{file_to_edit:"dry_run"}});
+    updateDisplay(data.observation,data.reward,data.info);addHistoryItem(data.info.step_count,'dry_run',data.reward.score,data.info.error_count,false);
+  }catch(e){console.error('Dry run failed:',e)}showLoading(false);
 }
 
-async function runAutoFix() {
-  if (isDone || currentTaskId === null || autoFixRunning) return;
-
-  autoFixRunning = true;
-  const btn = document.getElementById('btnAutoFix');
-  btn.textContent = '⏳ Fixing...';
-  btn.disabled = true;
-  document.getElementById('btnStep').disabled = true;
-  document.getElementById('btnDryRun').disabled = true;
-
-  const fixes = FIXES[currentTaskId];
-  fixIndex = 0;
-
-  for (let i = 0; i < fixes.length && !isDone; i++) {
-    const fix = fixes[i];
-    fixIndex = i + 1;
-
-    showLoading(true);
-    try {
-      const data = await apiPost('/step', { action: fix });
-      updateDisplay(data.observation, data.reward, data.info);
-      addHistoryItem(
-        data.info.step_count,
-        fix.file_to_edit,
-        data.reward.score,
-        data.info.error_count,
-        data.reward.is_done
-      );
-
-      if (data.reward.is_done) {
-        document.getElementById('workspace').classList.add('success-flash');
-        setTimeout(() => document.getElementById('workspace').classList.remove('success-flash'), 600);
-      }
-    } catch (e) {
-      console.error('Auto-fix step failed:', e);
-      break;
-    }
-    showLoading(false);
-
-    // Pause between steps for visual effect
-    if (i < fixes.length - 1 && !isDone) {
-      await new Promise(r => setTimeout(r, 1200));
-    }
+async function runAutoFix(){
+  if(isDone||currentTaskId===null||autoFixRunning)return;autoFixRunning=true;
+  const btn=document.getElementById('btnAutoFix');btn.textContent='Fixing...';btn.disabled=true;
+  document.getElementById('btnStep').disabled=true;document.getElementById('btnDryRun').disabled=true;
+  const fixes=FIXES[currentTaskId];fixIndex=0;
+  for(let i=0;i<fixes.length&&!isDone;i++){const fix=fixes[i];fixIndex=i+1;showLoading(true);
+    try{const data=await apiPost('/step',{action:fix});updateDisplay(data.observation,data.reward,data.info);
+      addHistoryItem(data.info.step_count,fix.file_to_edit,data.reward.score,data.info.error_count,data.reward.is_done);
+      if(data.reward.is_done){document.getElementById('workspace').classList.add('success-flash');setTimeout(()=>document.getElementById('workspace').classList.remove('success-flash'),600)}
+    }catch(e){console.error('Auto-fix step failed:',e);break}showLoading(false);
+    if(i<fixes.length-1&&!isDone)await new Promise(r=>setTimeout(r,1200));
   }
-
-  showLoading(false);
-  autoFixRunning = false;
-  btn.innerHTML = '&#9654; Auto-Fix Demo';
-  if (!isDone) {
-    btn.disabled = false;
-    document.getElementById('btnStep').disabled = false;
-    document.getElementById('btnDryRun').disabled = false;
-  }
+  showLoading(false);autoFixRunning=false;btn.innerHTML='&#9654; Auto-Fix Demo';
+  if(!isDone){btn.disabled=false;document.getElementById('btnStep').disabled=false;document.getElementById('btnDryRun').disabled=false}
 }
 
-function resetCurrentTask() {
-  if (currentTaskId !== null) {
-    autoFixRunning = false;
-    selectTask(currentTaskId);
-  }
-}
+function resetCurrentTask(){if(currentTaskId!==null){autoFixRunning=false;selectTask(currentTaskId)}}
 </script>
 </body>
 </html>
