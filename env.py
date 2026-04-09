@@ -145,7 +145,8 @@ class Action(BaseModel):
 
 
 class Reward(BaseModel):
-    score: float = Field(default=0.0, ge=0.0, le=1.0)
+    # Validator requires strictly (0, 1) — gt/lt enforces this at the model level.
+    score: float = Field(default=0.01, gt=0.0, lt=1.0)
     is_done: bool = Field(default=False)
 
 
@@ -559,32 +560,34 @@ class RustFixerEnv:
         if not is_dry_run:
             self._previous_error_count = current_errors
 
-        # --- Reward with partial progress + regression penalty ---
+        # --- Reward with partial progress ---
+        # IMPORTANT: Validator requires scores strictly in (0, 1) — never 0.0 or 1.0.
+        # Ladder: regression=0.01, dry_run=0.01, stalled=0.05, partial=0.09-0.90,
+        #         build+warnings=0.91-0.98, clean build=0.99
         if is_dry_run:
-            # Planning step — refreshes diagnostics, no file changes, no reward.
-            self._last_reward = Reward(score=0.0, is_done=False)
+            # Planning step — no file changes, minimal reward.
+            self._last_reward = Reward(score=0.01, is_done=False)
         elif returncode == 0:
-            # Build passed.  Deduct slightly for warnings (quality gate).
-            score = 1.0 if current_warnings == 0 else max(0.95, 1.0 - current_warnings * 0.01)
+            # Build passed. Deduct for warnings; cap at 0.99 (never 1.0).
+            score = 0.99 if current_warnings == 0 else max(0.91, 0.99 - current_warnings * 0.01)
             self._last_reward = Reward(score=round(score, 2), is_done=True)
         elif self._initial_error_count > 0:
             reduction = self._initial_error_count - current_errors
             if reduction > 0:
                 ratio = reduction / self._initial_error_count
+                # Range: 0.09–0.90 (never 0.0 or 1.0)
                 self._last_reward = Reward(
-                    score=round(min(0.9, ratio * 0.9), 2), is_done=False
+                    score=round(max(0.09, min(0.90, ratio * 0.90)), 2), is_done=False
                 )
             elif regression:
-                # Regression: agent made things worse → 0.0 (distinguishable
-                # from no-change via info.regression=True, but reward itself
-                # is the lowest possible signal).
-                self._last_reward = Reward(score=0.0, is_done=False)
+                # Agent made things worse — lowest possible signal.
+                self._last_reward = Reward(score=0.01, is_done=False)
             else:
-                # No change, no regression: tiny positive to distinguish from
-                # regression in cases where the RL trainer only sees the scalar.
+                # Stalled — slightly above regression floor.
                 self._last_reward = Reward(score=0.05, is_done=False)
         else:
-            self._last_reward = Reward(score=0.0, is_done=False)
+            # No initial errors recorded — shouldn't happen, safe floor.
+            self._last_reward = Reward(score=0.01, is_done=False)
 
         # Build the info dict (OpenEnv spec compliance).
         self._last_info = Info(
