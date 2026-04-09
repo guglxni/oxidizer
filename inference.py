@@ -327,10 +327,10 @@ class StructuredLogger:
 
     def log_step_error(self, step: int, error_msg: str) -> None:
         self.step_count = step
-        self.rewards.append("0.00")
+        self.rewards.append("0.01")
         sys.stdout.write(
             f"[STEP] step={step} action=parse_error"
-            f" reward=0.00 done=false error={self._tok(error_msg)}\n"
+            f" reward=0.01 done=false error={self._tok(error_msg)}\n"
         )
         sys.stdout.flush()
 
@@ -395,7 +395,8 @@ def run_agent(task_id: int, benchmark: str = BENCHMARK) -> Tuple[bool, int, floa
     finally:
         env.close()
 
-    final_score = 1.0 if success else 0.0
+    # Validator requires strictly (0, 1) — never exactly 0.0 or 1.0.
+    final_score = 0.99 if success else 0.01
     slog.log_end(success=success, final_score=final_score)
     logger.info("Agent done task=%s success=%s score=%.1f", task_name, success, final_score)
     return success, slog.step_count, final_score
@@ -409,8 +410,8 @@ def run_all_tasks(benchmark: str = BENCHMARK) -> None:
 
     total = sum(r["score"] for r in results)
     sys.stderr.write("\n=== Summary ===\n")
-    sys.stderr.write(f"Tasks completed: {sum(1 for r in results if r['success'])}/3\n")
-    sys.stderr.write(f"Total score: {total:.2f}/3.00\n")
+    sys.stderr.write(f"Tasks completed: {sum(1 for r in results if r['success'])}/5\n")
+    sys.stderr.write(f"Total score: {total:.2f}/5.00\n")
     sys.stderr.flush()
 
 
