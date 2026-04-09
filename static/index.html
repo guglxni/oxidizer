@@ -393,7 +393,7 @@ async function analyzeRepo() {
     document.getElementById('metricStep').textContent = '-';
     document.getElementById('metricErrors').textContent = data.error_count;
     document.getElementById('metricErrors').style.color = data.error_count === 0 ? 'var(--green)' : 'var(--red)';
-    document.getElementById('metricReward').textContent = data.builds ? '1.00' : '0.00';
+    document.getElementById('metricReward').textContent = data.builds ? '0.99' : '0.01';
     document.getElementById('metricReward').className = 'value ' + (data.builds ? 'reward-high' : 'reward-low');
     const doneEl = document.getElementById('metricDone');
     doneEl.textContent = data.builds ? 'Builds' : data.error_count + ' Errors';

@@ -940,7 +940,13 @@ def _clone_and_check(repo_url: str) -> AnalyzeResponse:
             compiler_output = f"cargo check error: {type(exc).__name__}"
             logger.error("ANALYZE_CHECK_ERROR audit_id=%s type=%s", audit_id, type(exc).__name__)
 
+        # Broader error counting for arbitrary repos — catches dependency
+        # resolution failures, linker errors, etc. beyond just error[Exxxx].
         error_count = RustFixerEnv._count_errors(compiler_output)
+        if error_count == 0 and returncode != 0:
+            # Fallback: count lines starting with "error" (dependency failures, etc.)
+            error_count = sum(1 for line in compiler_output.splitlines()
+                             if line.strip().startswith("error"))
         warning_count = RustFixerEnv._count_warnings(compiler_output)
         builds = (returncode == 0)
 
